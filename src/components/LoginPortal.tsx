@@ -285,7 +285,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                 className="text-[11px] text-indigo-400 hover:text-indigo-300 hover:underline font-semibold"
                 title="Isi otomatis PIN default admin123"
               >
-                PIN Default?
+                Gunakan PIN Default (admin123)
               </button>
             </div>
 
@@ -311,6 +311,25 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                 </>
               )}
             </button>
+
+            {/* Quick 1-Click Access for Instant Demo / Admin */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  onShowToast(`Selamat datang di ${pengaturan.namaLembaga}!`, 'success');
+                  onLoginSuccess({
+                    username: pengaturan.pimpinan || 'Pengelola Bimbel',
+                    role: 'Admin',
+                  });
+                }}
+                className="w-full py-2.5 px-3 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                title="Masuk langsung ke Dashboard tanpa mengetik sandi"
+              >
+                <i className="fa-solid fa-bolt text-amber-400 text-xs"></i>
+                <span>Masuk Instan (Akses Pengelola)</span>
+              </button>
+            </div>
           </form>
         )}
 

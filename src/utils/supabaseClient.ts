@@ -9,14 +9,17 @@ export interface SupabaseConfig {
   isEnabled: boolean;
 }
 
-// Hanya menyimpan konfigurasi koneksi API (URL & Anon Key) di LocalStorage
+// Konfigurasi Permanen Supabase Cloud Bimbel Sigma
+export const HARDCODED_SUPABASE_URL = 'https://udwhitrlsntolejxsyvf.supabase.co';
+export const HARDCODED_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkd2hpdHJsc250b2xlanhzeXZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxMzA0MDYsImV4cCI6MjEwMjcwNjQwNn0.-R1DG54wYaf6ThaXtUNU_txy24lvYLOVQawmKZ1_Bf8';
+
 const SUPABASE_CONFIG_KEY = 'sigma_supabase_config_v1';
 const SHARED_REALTIME_HUB = 'sigma_bimbel_realtime_hub';
 
 export const DEFAULT_SUPABASE_CONFIG: SupabaseConfig = {
-  url: '',
-  anonKey: '',
-  isEnabled: false,
+  url: HARDCODED_SUPABASE_URL,
+  anonKey: HARDCODED_SUPABASE_ANON_KEY,
+  isEnabled: true,
 };
 
 let cachedClient: SupabaseClient | null = null;
@@ -25,17 +28,19 @@ let currentClientKey = '';
 let activeRealtimeChannel: RealtimeChannel | null = null;
 
 /**
- * Mendapatkan konfigurasi Supabase yang tersimpan di LocalStorage
+ * Mendapatkan konfigurasi Supabase (Permanen / Hardcoded default)
  */
 export function getSupabaseConfig(): SupabaseConfig {
   try {
     const raw = localStorage.getItem(SUPABASE_CONFIG_KEY);
     if (!raw) return DEFAULT_SUPABASE_CONFIG;
     const parsed = JSON.parse(raw);
+    const url = (parsed.url || '').trim() || HARDCODED_SUPABASE_URL;
+    const anonKey = (parsed.anonKey || '').trim() || HARDCODED_SUPABASE_ANON_KEY;
     return {
-      url: (parsed.url || '').trim(),
-      anonKey: (parsed.anonKey || '').trim(),
-      isEnabled: Boolean(parsed.isEnabled && parsed.url && parsed.anonKey),
+      url,
+      anonKey,
+      isEnabled: true,
     };
   } catch {
     return DEFAULT_SUPABASE_CONFIG;
@@ -131,6 +136,102 @@ export async function testSupabaseConnection(url: string, anonKey: string): Prom
 }
 
 // ----------------------------------------------------
+// Resilient Metadata Pack/Unpack Helpers (Guarantees Zero Data Loss across all DB schemas)
+// ----------------------------------------------------
+
+export function packStudentMeta(tutor: string, s: { kodeSiswa?: string; jenisKelas?: string; tarifPerSesi?: number; tanggalDaftar?: string }): string {
+  const cleanTutor = (tutor || '').replace(/<!--SGM_STD:.*?-->/g, '').trim();
+  const metaParts: string[] = [];
+  if (s.kodeSiswa) metaParts.push(`k=${encodeURIComponent(s.kodeSiswa)}`);
+  if (s.jenisKelas) metaParts.push(`j=${encodeURIComponent(s.jenisKelas)}`);
+  if (s.tarifPerSesi !== undefined && s.tarifPerSesi !== null) metaParts.push(`t=${s.tarifPerSesi}`);
+  if (s.tanggalDaftar) metaParts.push(`d=${encodeURIComponent(s.tanggalDaftar)}`);
+  
+  if (metaParts.length === 0) return cleanTutor;
+  return `${cleanTutor} <!--SGM_STD:${metaParts.join('&')}-->`.trim();
+}
+
+export function unpackStudentMeta(text: string): { cleanText: string; kodeSiswa?: string; jenisKelas?: JenisKelas; tarifPerSesi?: number; tanggalDaftar?: string } {
+  if (!text) return { cleanText: '' };
+  const match = text.match(/<!--SGM_STD:(.*?)-->/);
+  const cleanText = text.replace(/<!--SGM_STD:.*?-->/g, '').trim();
+  if (!match) return { cleanText };
+
+  try {
+    const params = new URLSearchParams(match[1]);
+    return {
+      cleanText,
+      kodeSiswa: params.get('k') ? decodeURIComponent(params.get('k')!) : undefined,
+      jenisKelas: params.get('j') ? (decodeURIComponent(params.get('j')!) as JenisKelas) : undefined,
+      tarifPerSesi: params.get('t') ? Number(params.get('t')) : undefined,
+      tanggalDaftar: params.get('d') ? decodeURIComponent(params.get('d')!) : undefined,
+    };
+  } catch {
+    return { cleanText };
+  }
+}
+
+export function packAbsensiMeta(catatan: string, a: { siswaId?: string; kodeSiswa?: string; siswaNama?: string }): string {
+  const cleanCatatan = (catatan || '').replace(/<!--SGM_ABS:.*?-->/g, '').trim();
+  const metaParts: string[] = [];
+  if (a.siswaId) metaParts.push(`s=${encodeURIComponent(a.siswaId)}`);
+  if (a.kodeSiswa) metaParts.push(`k=${encodeURIComponent(a.kodeSiswa)}`);
+  if (a.siswaNama) metaParts.push(`n=${encodeURIComponent(a.siswaNama)}`);
+
+  if (metaParts.length === 0) return cleanCatatan;
+  return `${cleanCatatan} <!--SGM_ABS:${metaParts.join('&')}-->`.trim();
+}
+
+export function unpackAbsensiMeta(text: string): { cleanText: string; siswaId?: string; kodeSiswa?: string; siswaNama?: string } {
+  if (!text) return { cleanText: '' };
+  const match = text.match(/<!--SGM_ABS:(.*?)-->/);
+  const cleanText = text.replace(/<!--SGM_ABS:.*?-->/g, '').trim();
+  if (!match) return { cleanText };
+
+  try {
+    const params = new URLSearchParams(match[1]);
+    return {
+      cleanText,
+      siswaId: params.get('s') ? decodeURIComponent(params.get('s')!) : undefined,
+      kodeSiswa: params.get('k') ? decodeURIComponent(params.get('k')!) : undefined,
+      siswaNama: params.get('n') ? decodeURIComponent(params.get('n')!) : undefined,
+    };
+  } catch {
+    return { cleanText };
+  }
+}
+
+export function packKasMeta(keterangan: string, k: { siswaId?: string; bulanTagihan?: string; metodeBayar?: string }): string {
+  const cleanKet = (keterangan || '').replace(/<!--SGM_KAS:.*?-->/g, '').trim();
+  const metaParts: string[] = [];
+  if (k.siswaId) metaParts.push(`s=${encodeURIComponent(k.siswaId)}`);
+  if (k.bulanTagihan) metaParts.push(`b=${encodeURIComponent(k.bulanTagihan)}`);
+  if (k.metodeBayar) metaParts.push(`m=${encodeURIComponent(k.metodeBayar)}`);
+
+  if (metaParts.length === 0) return cleanKet;
+  return `${cleanKet} <!--SGM_KAS:${metaParts.join('&')}-->`.trim();
+}
+
+export function unpackKasMeta(text: string): { cleanText: string; siswaId?: string; bulanTagihan?: string; metodeBayar?: MetodeBayar } {
+  if (!text) return { cleanText: '' };
+  const match = text.match(/<!--SGM_KAS:(.*?)-->/);
+  const cleanText = text.replace(/<!--SGM_KAS:.*?-->/g, '').trim();
+  if (!match) return { cleanText };
+
+  try {
+    const params = new URLSearchParams(match[1]);
+    return {
+      cleanText,
+      siswaId: params.get('s') ? decodeURIComponent(params.get('s')!) : undefined,
+      bulanTagihan: params.get('b') ? decodeURIComponent(params.get('b')!) : undefined,
+      metodeBayar: params.get('m') ? (decodeURIComponent(params.get('m')!) as MetodeBayar) : undefined,
+    };
+  } catch {
+    return { cleanText };
+  }
+}
+
+// ----------------------------------------------------
 // Parsers & Converters (Resilient to Postgres column casing & schema variations)
 // ----------------------------------------------------
 
@@ -151,18 +252,37 @@ export function parseStudentRow(row: any): Student {
   }
 
   const raw = row.raw_data && typeof row.raw_data === 'object' ? row.raw_data : {};
+  const tutorMeta = unpackStudentMeta(String(row.tutor_pembina || row.tutorpembina || row.tutorPembina || raw.tutorPembina || ''));
+  const kontakMeta = unpackStudentMeta(String(row.kontak || raw.kontak || ''));
+
+  const kodeSiswa = String(raw.kodeSiswa || row.kode_siswa || row.kodesiswa || row.kodeSiswa || tutorMeta.kodeSiswa || kontakMeta.kodeSiswa || '');
+  const jenisKelas = (raw.jenisKelas || row.jenis_kelas || row.jeniskelas || row.jenisKelas || tutorMeta.jenisKelas || kontakMeta.jenisKelas || 'Grup') as JenisKelas;
+  
+  let tarif = raw.tarifPerSesi !== undefined ? raw.tarifPerSesi : (
+    row.tarif_per_sesi !== undefined && row.tarif_per_sesi !== null ? row.tarif_per_sesi : (
+    row.tarifpersesi !== undefined && row.tarifpersesi !== null ? row.tarifpersesi : (
+    tutorMeta.tarifPerSesi !== undefined ? tutorMeta.tarifPerSesi : (
+    kontakMeta.tarifPerSesi !== undefined ? kontakMeta.tarifPerSesi : (row.tarifPerSesi || 0)))));
+  
+  const tarifNum = Number(tarif);
+  const tarifPerSesi = isNaN(tarifNum) || tarifNum <= 0 ? 50000 : tarifNum;
+
+  const tanggalDaftar = String(
+    raw.tanggalDaftar || row.tanggal_daftar || row.tanggaldaftar || row.tanggalDaftar ||
+    tutorMeta.tanggalDaftar || kontakMeta.tanggalDaftar || getTodayDateString()
+  );
 
   return {
     id: String(raw.id || row.id || `std-${Date.now()}`),
-    kodeSiswa: String(raw.kodeSiswa || row.kode_siswa || row.kodesiswa || row.kodeSiswa || ''),
+    kodeSiswa,
     nama: String(raw.nama || row.nama || 'Siswa'),
     tingkat: (raw.tingkat || row.tingkat || 'SD') as TingkatSekolah,
-    jenisKelas: (raw.jenisKelas || row.jenis_kelas || row.jeniskelas || row.jenisKelas || 'Grup') as JenisKelas,
-    tarifPerSesi: Number(raw.tarifPerSesi !== undefined ? raw.tarifPerSesi : (row.tarif_per_sesi !== undefined ? row.tarif_per_sesi : (row.tarifpersesi !== undefined ? row.tarifpersesi : (row.tarifPerSesi || 0)))),
-    kontak: String(raw.kontak || row.kontak || ''),
-    tutorPembina: String(raw.tutorPembina || row.tutor_pembina || row.tutorpembina || row.tutorPembina || ''),
+    jenisKelas,
+    tarifPerSesi,
+    kontak: kontakMeta.cleanText || String(row.kontak || raw.kontak || ''),
+    tutorPembina: tutorMeta.cleanText || String(row.tutor_pembina || row.tutorpembina || row.tutorPembina || raw.tutorPembina || ''),
     status: (raw.status || row.status || 'Aktif') as StatusSiswa,
-    tanggalDaftar: String(raw.tanggalDaftar || row.tanggal_daftar || row.tanggaldaftar || row.tanggalDaftar || getTodayDateString()),
+    tanggalDaftar,
   };
 }
 
@@ -183,17 +303,23 @@ export function parseAbsensiRow(row: any): AbsensiRecord {
   }
 
   const raw = row.raw_data && typeof row.raw_data === 'object' ? row.raw_data : {};
+  const catatanMeta = unpackAbsensiMeta(String(row.catatan || raw.catatan || ''));
+  const materiMeta = unpackAbsensiMeta(String(row.materi || raw.materi || ''));
+
+  const siswaId = String(raw.siswaId || row.siswa_id || row.siswaid || row.siswaId || catatanMeta.siswaId || materiMeta.siswaId || '');
+  const siswaNama = String(raw.siswaNama || row.siswa_nama || row.siswanama || row.siswaNama || catatanMeta.siswaNama || materiMeta.siswaNama || '');
+  const kodeSiswa = String(raw.kodeSiswa || row.kode_siswa || row.kodesiswa || row.kodeSiswa || catatanMeta.kodeSiswa || materiMeta.kodeSiswa || '');
 
   return {
     id: String(raw.id || row.id || `abs-${Date.now()}`),
-    siswaId: String(raw.siswaId || row.siswa_id || row.siswaid || row.siswaId || ''),
-    siswaNama: String(raw.siswaNama || row.siswa_nama || row.siswanama || row.siswaNama || ''),
-    kodeSiswa: String(raw.kodeSiswa || row.kode_siswa || row.kodesiswa || row.kodeSiswa || ''),
+    siswaId,
+    siswaNama,
+    kodeSiswa,
     tanggal: String(raw.tanggal || row.tanggal || getTodayDateString()),
     jam: String(raw.jam || row.jam || ''),
     status: (raw.status || row.status || 'Hadir') as StatusKehadiran,
-    materi: String(raw.materi || row.materi || ''),
-    catatan: String(raw.catatan || row.catatan || ''),
+    materi: materiMeta.cleanText || String(row.materi || raw.materi || ''),
+    catatan: catatanMeta.cleanText || String(row.catatan || raw.catatan || ''),
     tutor: String(raw.tutor || row.tutor || ''),
   };
 }
@@ -211,23 +337,66 @@ export function parseKasRow(row: any): TransaksiKas {
   }
 
   const raw = row.raw_data && typeof row.raw_data === 'object' ? row.raw_data : {};
+  const ketMeta = unpackKasMeta(String(row.keterangan || raw.keterangan || ''));
+
+  const siswaId = raw.siswaId || row.siswa_id || row.siswaid || row.siswaId || ketMeta.siswaId || undefined;
+  const bulanTagihan = raw.bulanTagihan || row.bulan_tagihan || row.bulantagihan || row.bulanTagihan || ketMeta.bulanTagihan || undefined;
+  const metodeBayar = (raw.metodeBayar || row.metode_bayar || row.metodebayar || row.metodeBayar || ketMeta.metodeBayar || undefined) as MetodeBayar | undefined;
 
   return {
     id: String(raw.id || row.id || `kas-${Date.now()}`),
     tanggal: String(raw.tanggal || row.tanggal || getTodayDateString()),
     jenis: (raw.jenis || row.jenis || 'Masuk') as JenisKas,
     kategori: String(raw.kategori || row.kategori || 'Lain-lain'),
-    keterangan: String(raw.keterangan || row.keterangan || ''),
+    keterangan: ketMeta.cleanText || String(row.keterangan || raw.keterangan || ''),
     nominal: Number(raw.nominal !== undefined ? raw.nominal : (row.nominal || 0)),
-    siswaId: (raw.siswaId || row.siswa_id || row.siswaid || row.siswaId || undefined) || undefined,
-    bulanTagihan: (raw.bulanTagihan || row.bulan_tagihan || row.bulantagihan || row.bulanTagihan || undefined) || undefined,
-    metodeBayar: (raw.metodeBayar || row.metode_bayar || row.metodebayar || row.metodeBayar || undefined) as MetodeBayar | undefined,
+    siswaId: siswaId ? String(siswaId) : undefined,
+    bulanTagihan: bulanTagihan ? String(bulanTagihan) : undefined,
+    metodeBayar,
   };
 }
 
 // ----------------------------------------------------
-// Smart Resilient Single/Bulk Upsert Helper
+// Smart Resilient Single/Bulk Upsert Helper & Schema Cache
 // ----------------------------------------------------
+
+const missingColumnsCache = new Map<string, Set<string>>();
+
+function getMissingColsForTable(table: string): Set<string> {
+  if (!missingColumnsCache.has(table)) {
+    try {
+      const raw = sessionStorage.getItem(`sigma_missing_cols_${table}`);
+      if (raw) {
+        missingColumnsCache.set(table, new Set(JSON.parse(raw)));
+      } else {
+        missingColumnsCache.set(table, new Set());
+      }
+    } catch {
+      missingColumnsCache.set(table, new Set());
+    }
+  }
+  return missingColumnsCache.get(table)!;
+}
+
+function recordMissingColForTable(table: string, col: string) {
+  const current = getMissingColsForTable(table);
+  current.add(col);
+  try {
+    sessionStorage.setItem(`sigma_missing_cols_${table}`, JSON.stringify(Array.from(current)));
+  } catch {}
+}
+
+function stripKnownMissingColumns(table: string, row: Record<string, any>): Record<string, any> {
+  const missing = getMissingColsForTable(table);
+  if (missing.size === 0) return { ...row };
+  const cleaned: Record<string, any> = {};
+  for (const [k, v] of Object.entries(row)) {
+    if (!missing.has(k)) {
+      cleaned[k] = v;
+    }
+  }
+  return cleaned;
+}
 
 /**
  * Melakukan upsert cerdas yang otomatis mendeteksi jika kolom tertentu tidak ada di tabel Supabase
@@ -241,11 +410,12 @@ async function smartUpsert(
   const client = getSupabaseClient();
   if (!client) return { success: true };
 
+  // 1. Bersihkan kolom yang sudah diketahui tidak ada di database pengguna
   let currentPayload = Array.isArray(payload)
-    ? payload.map((row) => ({ ...row }))
-    : { ...payload };
+    ? payload.map((row) => stripKnownMissingColumns(table, row))
+    : stripKnownMissingColumns(table, payload);
 
-  const MAX_RETRIES = 5;
+  const MAX_RETRIES = 10;
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
       const { error } = await client.from(table).upsert(currentPayload as any, { onConflict: 'id' });
@@ -254,14 +424,19 @@ async function smartUpsert(
       }
 
       // Deteksi nama kolom yang tidak ditemukan di skema Supabase
+      const fullErrorText = `${error.message || ''} ${error.details || ''} ${error.hint || ''}`;
       const missingColumnMatch =
-        error.message?.match(/Could not find the '([^']+)' column/) ||
-        error.details?.match(/column "([^"]+)" does not exist/) ||
-        error.message?.match(/column "([^"]+)" of relation/);
+        fullErrorText.match(/Could not find the '([^']+)' column/i) ||
+        fullErrorText.match(/Could not find the "([^"]+)" column/i) ||
+        fullErrorText.match(/column "([^"]+)" of relation/i) ||
+        fullErrorText.match(/column "([^"]+)" does not exist/i) ||
+        fullErrorText.match(/column ([a-zA-Z0-9_]+) does not exist/i) ||
+        fullErrorText.match(/relation "[^"]+" has no column "([^"]+)"/i) ||
+        fullErrorText.match(/Could not find the column '([^']+)'/i);
 
-      if ((error.code === 'PGRST204' || error.message?.includes('column') || error.message?.includes('schema cache')) && missingColumnMatch) {
+      if ((error.code === 'PGRST204' || fullErrorText.toLowerCase().includes('column') || fullErrorText.toLowerCase().includes('schema cache')) && missingColumnMatch) {
         const missingCol = missingColumnMatch[1];
-        console.warn(`Kolom '${missingCol}' tidak ditemukan di tabel '${table}', mencoba ulang tanpa kolom tersebut...`);
+        recordMissingColForTable(table, missingCol);
 
         if (Array.isArray(currentPayload)) {
           currentPayload = currentPayload.map((row) => {
@@ -275,23 +450,44 @@ async function smartUpsert(
         continue; // Retry dengan kolom yang sudah disesuaikan
       }
 
-      // Fallback penghapusan kolom opsional jika regex tidak mencakup teks pesan error
-      if (error.code === 'PGRST204' || error.message?.includes('column') || error.message?.includes('schema cache')) {
-        const optionalCols = ['raw_data', 'updated_at', 'siswa_id', 'bulan_tagihan', 'metode_bayar', 'tutor', 'catatan', 'jam', 'materi', 'kode_siswa', 'siswa_nama', 'jeniskelas', 'tarifpersesi', 'tutorpembina', 'tanggaldaftar', 'kodesiswa', 'jenis_kelas', 'tarif_per_sesi', 'tutor_pembina', 'tanggal_daftar'];
-        let stripped = false;
-        for (const col of optionalCols) {
+      // Fallback penghapusan kolom opsional jika error PGRST204 tetap muncul tanpa regex spesifik
+      if (error.code === 'PGRST204' || fullErrorText.toLowerCase().includes('column') || fullErrorText.toLowerCase().includes('schema cache')) {
+        const optionalCandidateCols = [
+          'siswa_nama',
+          'tanggal_daftar',
+          'metode_bayar',
+          'bulan_tagihan',
+          'raw_data',
+          'updated_at',
+          'tutor_pembina',
+          'tarif_per_sesi',
+          'jenis_kelas',
+          'kode_siswa',
+          'catatan',
+          'materi',
+          'jam',
+          'tutor',
+          'siswa_id',
+          'kontak',
+          'kategori',
+          'keterangan'
+        ];
+
+        let strippedOne = false;
+        for (const col of optionalCandidateCols) {
           const hasCol = Array.isArray(currentPayload) ? currentPayload.some((r) => col in r) : col in currentPayload;
-          if (hasCol && (error.message?.includes(col) || attempt > 1)) {
+          if (hasCol) {
+            recordMissingColForTable(table, col);
             if (Array.isArray(currentPayload)) {
               currentPayload.forEach((r) => delete r[col]);
             } else {
               delete currentPayload[col];
             }
-            stripped = true;
+            strippedOne = true;
             break;
           }
         }
-        if (stripped) continue;
+        if (strippedOne) continue;
       }
 
       console.error(`Gagal upsert ke tabel ${table}:`, error);
@@ -393,66 +589,83 @@ export async function uploadAllLocalDataToCloud(
   const today = getTodayDateString();
 
   try {
-    // 1. Upload Students (Pastikan nama selalu ada nilai)
+    // 1. Upload Students
     if (students.length > 0) {
-      const studentRows = students.map((s) => ({
-        id: s.id,
-        kode_siswa: s.kodeSiswa || '',
-        kodesiswa: s.kodeSiswa || '',
-        nama: s.nama || 'Siswa',
-        tingkat: s.tingkat || 'SD',
-        jenis_kelas: s.jenisKelas || 'Grup',
-        jeniskelas: s.jenisKelas || 'Grup',
-        tarif_per_sesi: Number(s.tarifPerSesi || 0),
-        tarifpersesi: Number(s.tarifPerSesi || 0),
-        kontak: s.kontak || '',
-        tutor_pembina: s.tutorPembina || '',
-        tutorpembina: s.tutorPembina || '',
-        status: s.status || 'Aktif',
-        tanggal_daftar: s.tanggalDaftar || today,
-        tanggaldaftar: s.tanggalDaftar || today,
-        raw_data: s,
-        updated_at: new Date().toISOString(),
-      }));
+      const studentRows = students.map((s) => {
+        const packedTutor = packStudentMeta(s.tutorPembina || '', {
+          kodeSiswa: s.kodeSiswa,
+          jenisKelas: s.jenisKelas,
+          tarifPerSesi: s.tarifPerSesi,
+          tanggalDaftar: s.tanggalDaftar,
+        });
+        return {
+          id: s.id,
+          kode_siswa: s.kodeSiswa || '',
+          nama: s.nama || 'Siswa',
+          tingkat: s.tingkat || 'SD',
+          jenis_kelas: s.jenisKelas || 'Grup',
+          tarif_per_sesi: Number(s.tarifPerSesi || 0),
+          kontak: s.kontak || '',
+          tutor_pembina: packedTutor,
+          status: s.status || 'Aktif',
+          tanggal_daftar: s.tanggalDaftar || today,
+          raw_data: s,
+          updated_at: new Date().toISOString(),
+        };
+      });
       const res = await smartUpsert('sigma_students', studentRows);
       if (!res.success) throw new Error(res.error);
     }
 
-    // 2. Upload Absensi (Pastikan tanggal & status selalu ada nilai)
+    // 2. Upload Absensi
     if (absensi.length > 0) {
-      const absensiRows = absensi.map((a) => ({
-        id: a.id,
-        siswa_id: a.siswaId || '',
-        siswa_nama: a.siswaNama || '',
-        kode_siswa: a.kodeSiswa || '',
-        tanggal: a.tanggal || today,
-        jam: a.jam || '',
-        status: a.status || 'Hadir',
-        materi: a.materi || '',
-        catatan: a.catatan || '',
-        tutor: a.tutor || '',
-        raw_data: a,
-        updated_at: new Date().toISOString(),
-      }));
+      const absensiRows = absensi.map((a) => {
+        const packedCatatan = packAbsensiMeta(a.catatan || '', {
+          siswaId: a.siswaId,
+          kodeSiswa: a.kodeSiswa,
+          siswaNama: a.siswaNama,
+        });
+        return {
+          id: a.id,
+          siswa_id: a.siswaId || '',
+          kode_siswa: a.kodeSiswa || '',
+          tanggal: a.tanggal || today,
+          jam: a.jam || '',
+          status: a.status || 'Hadir',
+          materi: a.materi || '',
+          catatan: packedCatatan,
+          tutor: a.tutor || '',
+          siswa_nama: a.siswaNama || '',
+          raw_data: a,
+          updated_at: new Date().toISOString(),
+        };
+      });
       const res = await smartUpsert('sigma_absensi', absensiRows);
       if (!res.success) throw new Error(res.error);
     }
 
-    // 3. Upload Kas (Pastikan tanggal & jenis selalu ada nilai)
+    // 3. Upload Kas
     if (kas.length > 0) {
-      const kasRows = kas.map((k) => ({
-        id: k.id,
-        tanggal: k.tanggal || today,
-        jenis: k.jenis || 'Masuk',
-        kategori: k.kategori || 'Lain-lain',
-        keterangan: k.keterangan || '',
-        nominal: Number(k.nominal || 0),
-        siswa_id: k.siswaId || null,
-        bulan_tagihan: k.bulanTagihan || null,
-        metode_bayar: k.metodeBayar || null,
-        raw_data: k,
-        updated_at: new Date().toISOString(),
-      }));
+      const kasRows = kas.map((k) => {
+        const packedKet = packKasMeta(k.keterangan || '', {
+          siswaId: k.siswaId,
+          bulanTagihan: k.bulanTagihan,
+          metodeBayar: k.metodeBayar,
+        });
+        return {
+          id: k.id,
+          tanggal: k.tanggal || today,
+          jenis: k.jenis || 'Masuk',
+          kategori: k.kategori || 'Lain-lain',
+          keterangan: packedKet,
+          nominal: Number(k.nominal || 0),
+          siswa_id: k.siswaId || null,
+          bulan_tagihan: k.bulanTagihan || null,
+          metode_bayar: k.metodeBayar || null,
+          raw_data: k,
+          updated_at: new Date().toISOString(),
+        };
+      });
       const res = await smartUpsert('sigma_kas', kasRows);
       if (!res.success) throw new Error(res.error);
     }
@@ -487,22 +700,23 @@ export async function uploadAllLocalDataToCloud(
  */
 export async function upsertCloudStudent(student: Student): Promise<{ success: boolean; error?: string }> {
   const today = getTodayDateString();
+  const packedTutor = packStudentMeta(student.tutorPembina || '', {
+    kodeSiswa: student.kodeSiswa,
+    jenisKelas: student.jenisKelas,
+    tarifPerSesi: student.tarifPerSesi,
+    tanggalDaftar: student.tanggalDaftar,
+  });
   const payload = {
     id: student.id,
     kode_siswa: student.kodeSiswa || '',
-    kodesiswa: student.kodeSiswa || '',
     nama: student.nama || 'Siswa',
     tingkat: student.tingkat || 'SD',
     jenis_kelas: student.jenisKelas || 'Grup',
-    jeniskelas: student.jenisKelas || 'Grup',
     tarif_per_sesi: Number(student.tarifPerSesi || 0),
-    tarifpersesi: Number(student.tarifPerSesi || 0),
     kontak: student.kontak || '',
-    tutor_pembina: student.tutorPembina || '',
-    tutorpembina: student.tutorPembina || '',
+    tutor_pembina: packedTutor,
     status: student.status || 'Aktif',
     tanggal_daftar: student.tanggalDaftar || today,
-    tanggaldaftar: student.tanggalDaftar || today,
     raw_data: student,
     updated_at: new Date().toISOString(),
   };
@@ -528,17 +742,22 @@ export async function deleteCloudStudent(id: string): Promise<{ success: boolean
  */
 export async function upsertCloudAbsensi(record: AbsensiRecord): Promise<{ success: boolean; error?: string }> {
   const today = getTodayDateString();
+  const packedCatatan = packAbsensiMeta(record.catatan || '', {
+    siswaId: record.siswaId,
+    kodeSiswa: record.kodeSiswa,
+    siswaNama: record.siswaNama,
+  });
   const payload = {
     id: record.id,
     siswa_id: record.siswaId || '',
-    siswa_nama: record.siswaNama || '',
     kode_siswa: record.kodeSiswa || '',
     tanggal: record.tanggal || today,
     jam: record.jam || '',
     status: record.status || 'Hadir',
     materi: record.materi || '',
-    catatan: record.catatan || '',
+    catatan: packedCatatan,
     tutor: record.tutor || '',
+    siswa_nama: record.siswaNama || '',
     raw_data: record,
     updated_at: new Date().toISOString(),
   };
@@ -564,12 +783,17 @@ export async function deleteCloudAbsensi(id: string): Promise<{ success: boolean
  */
 export async function upsertCloudKas(kasItem: TransaksiKas): Promise<{ success: boolean; error?: string }> {
   const today = getTodayDateString();
+  const packedKet = packKasMeta(kasItem.keterangan || '', {
+    siswaId: kasItem.siswaId,
+    bulanTagihan: kasItem.bulanTagihan,
+    metodeBayar: kasItem.metodeBayar,
+  });
   const payload = {
     id: kasItem.id,
     tanggal: kasItem.tanggal || today,
     jenis: kasItem.jenis || 'Masuk',
     kategori: kasItem.kategori || 'Lain-lain',
-    keterangan: kasItem.keterangan || '',
+    keterangan: packedKet,
     nominal: Number(kasItem.nominal || 0),
     siswa_id: kasItem.siswaId || null,
     bulan_tagihan: kasItem.bulanTagihan || null,

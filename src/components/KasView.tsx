@@ -560,7 +560,7 @@ export const KasView: React.FC<KasViewProps> = ({
               ) : (
                 filteredKas.map((k, idx) => {
                   const isSPP = isKategoriSPP(k.jenis, k.kategori);
-                  const std = isSPP && k.siswaId ? students.find((s) => s.id === k.siswaId) : null;
+                  const std = isSPP && k.siswaId ? students.find((s) => s.id === k.siswaId || s.kodeSiswa === k.siswaId) : null;
                   return (
                     <tr key={k.id} className="hover:bg-slate-50/60 transition-colors">
                       <td className="py-3 px-4 text-center text-slate-400 font-mono">{idx + 1}</td>
@@ -590,10 +590,10 @@ export const KasView: React.FC<KasViewProps> = ({
                         <div className="font-medium">{k.keterangan}</div>
                         <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                           {/* ONLY SHOW STUDENT BADGE IF THIS IS AN SPP PAYMENT */}
-                          {isSPP && std && (
+                          {isSPP && (std || k.siswaId) && (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono text-[10px] font-bold border border-indigo-100">
                               <i className="fa-solid fa-user-graduate text-[9px]"></i>
-                              <span>Siswa: {std.nama}</span>
+                              <span>Siswa: {std ? std.nama : k.siswaId}</span>
                             </span>
                           )}
                           {/* ONLY SHOW BILLING MONTH IF THIS IS AN SPP PAYMENT */}

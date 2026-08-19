@@ -48,16 +48,8 @@ import { LoginPortal } from './components/LoginPortal';
 import { Toast } from './components/Toast';
 
 export default function App() {
-  // Authentication & Session State
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    try {
-      const savedLocal = localStorage.getItem('sigma_auth_session_v1');
-      const savedSession = sessionStorage.getItem('sigma_auth_session_v1');
-      return savedLocal === 'true' || savedSession === 'true';
-    } catch {
-      return false;
-    }
-  });
+  // Authentication & Session State - Always start at Portal as requested
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   const [currentAdminUser, setCurrentAdminUser] = useState<string>(() => {
     try {
@@ -452,8 +444,8 @@ export default function App() {
     showToast('Sesi telah ditutup. Portal akses terkunci dengan aman.', 'info');
   };
 
-  // Gatekeeper: Render Login Portal if required & not authenticated
-  if (pengaturan.requireLogin !== false && !isAuthenticated) {
+  // Gatekeeper: Render Login Portal strictly first before accessing dashboard
+  if (!isAuthenticated) {
     return (
       <>
         <LoginPortal
@@ -524,8 +516,8 @@ export default function App() {
               {cloudStatus === 'connected' && (
                 <div className="flex items-center gap-1.5 text-emerald-800 bg-emerald-50 border-emerald-200">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                  <i className="fa-solid fa-cloud text-emerald-600"></i>
-                  <span className="hidden md:inline">Cloud Realtime Aktif</span>
+                  <i className="fa-solid fa-cloud-check text-emerald-600"></i>
+                  <span className="hidden md:inline">Cloud Terhubung (Hardcoded)</span>
                   <span className="md:hidden">Cloud ON</span>
                 </div>
               )}

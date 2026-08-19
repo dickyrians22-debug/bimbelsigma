@@ -77,11 +77,128 @@ export const ProfitLossView: React.FC<ProfitLossViewProps> = ({
     window.print();
   };
 
+  // Download P&L Summary as CSV / Excel-compatible file
+  const handleDownloadCSV = () => {
+    const headers = [
+      'No',
+      'Bulan Operasional',
+      'Pemasukan (Rp)',
+      'Pengeluaran (Rp)',
+      'Laba / Rugi Bersih (Rp)',
+      'Margin Keuntungan (%)',
+      'Status',
+      'Jumlah Transaksi'
+    ];
+
+    const rows = monthlyData.map((m) => [
+      m.monthNumber,
+      `"${m.monthName} ${selectedYear}"`,
+      m.pemasukan,
+      m.pengeluaran,
+      m.netProfit,
+      `"${m.margin}%"`,
+      m.pemasukan === 0 && m.pengeluaran === 0 ? 'Nihil' : m.netProfit >= 0 ? 'SURPLUS' : 'DEFISIT',
+      m.transactionCount
+    ]);
+
+    const totalRow = [
+      'TOTAL',
+      `"TOTAL TAHUNAN ${selectedYear}"`,
+      totalPemasukanTahunan,
+      totalPengeluaranTahunan,
+      totalNetProfitTahunan,
+      `"${marginTahunan}%"`,
+      totalNetProfitTahunan >= 0 ? 'SURPLUS' : 'DEFISIT',
+      kas.filter((k) => k.tanggal.startsWith(String(selectedYear))).length
+    ];
+
+    const metadataRows = [
+      [`"LAPORAN LABA RUGI (PROFIT & LOSS REPORT)"`],
+      [`"Nama Lembaga: ${pengaturan.namaLembaga}"`],
+      [`"Tahun Buku: ${selectedYear}"`],
+      [`"Tanggal Unduh: ${formatIndonesianDate(getTodayDateString())}"`],
+      [`"Tempat / Tanggal TTD: ${tempatTtd}, ${formatIndonesianDate(tanggalTtd, false)}"`],
+      [`"Penandatangan: ${namaTtd} (${jabatanTtd})"`],
+      []
+    ];
+
+    const csvContent = '\uFEFF' + [
+      ...metadataRows.map(r => r.join(',')),
+      headers.join(','),
+      ...rows.map(r => r.join(',')),
+      totalRow.join(',')
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Laporan_PnL_${selectedYear}_${(pengaturan.namaLembaga || 'Bimbel').replace(/\s+/g, '_')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    onShowToast(`Laporan Laba Rugi (P&L) Tahun ${selectedYear} berhasil diunduh (CSV / Excel)!`, 'success');
+  };
+
+  // Download Detailed Transaction Ledger for the selected year
+  const handleDownloadDetailTransactionsCSV = () => {
+    const yearKas = kas.filter((k) => k.tanggal.startsWith(String(selectedYear)));
+    if (yearKas.length === 0) {
+      onShowToast(`Tidak ada transaksi kas tercatat pada tahun ${selectedYear}`, 'warning');
+      return;
+    }
+
+    const headers = [
+      'ID Transaksi',
+      'Tanggal',
+      'Jenis (Masuk/Keluar)',
+      'Kategori',
+      'Keterangan',
+      'Nominal (Rp)',
+      'Bulan Tagihan SPP',
+      'Metode Pembayaran'
+    ];
+
+    const rows = yearKas.map((k) => [
+      `"${k.id}"`,
+      `"${k.tanggal}"`,
+      `"${k.jenis}"`,
+      `"${k.kategori}"`,
+      `"${(k.keterangan || '').replace(/"/g, '""')}"`,
+      k.nominal,
+      `"${k.bulanTagihan || '-'}"`,
+      `"${k.metodeBayar || '-'}"`
+    ]);
+
+    const csvContent = '\uFEFF' + [
+      [`"BUKU BESAR MUTASI KAS PENDUKUNG P&L TAHUN ${selectedYear}"`],
+      [`"Lembaga: ${pengaturan.namaLembaga}"`],
+      [`"Total Mutasi: ${yearKas.length} Transaksi"`],
+      [],
+      headers.join(','),
+      ...rows.map(r => r.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Buku_Besar_Kas_${selectedYear}_${(pengaturan.namaLembaga || 'Bimbel').replace(/\s+/g, '_')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    onShowToast(`Buku besar ${yearKas.length} transaksi kas tahun ${selectedYear} berhasil diunduh!`, 'success');
+  };
+
   return (
     <div className="space-y-6">
       
       {/* Screen Toolbar Card (Hidden in print) */}
-      <div className="no-print bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="no-print bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">
@@ -94,10 +211,10 @@ export const ProfitLossView: React.FC<ProfitLossViewProps> = ({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           {/* Year Selector */}
           <div className="flex items-center gap-1.5 text-xs">
-            <span className="font-bold text-slate-600">Pilih Tahun:</span>
+            <span className="font-bold text-slate-600">Tahun:</span>
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(Number(e.target.value))}
@@ -112,26 +229,49 @@ export const ProfitLossView: React.FC<ProfitLossViewProps> = ({
           {/* Toggle Signature Setting Panel */}
           <button
             onClick={() => setShowConfigPanel(!showConfigPanel)}
-            className={`px-3.5 py-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 transition-all shadow-xs ${
+            className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer ${
               showConfigPanel
                 ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
                 : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
             }`}
             title="Buka/Tutup Pengaturan Tanda Tangan"
           >
-            <i className="fa-solid fa-signature text-sm"></i>
-            <span>Atur Tanda Tangan</span>
+            <i className="fa-solid fa-pen-fancy text-xs"></i>
+            <span>Atur TTD</span>
             <i className={`fa-solid ${showConfigPanel ? 'fa-chevron-up' : 'fa-chevron-down'} text-[10px]`}></i>
           </button>
 
-          {/* Print PDF Button */}
+          {/* Download P&L CSV / Excel */}
+          <button
+            id="btn-download-pnl-csv"
+            onClick={handleDownloadCSV}
+            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+            title="Unduh Rekap Laporan P&L Tahunan dalam format CSV / Excel"
+          >
+            <i className="fa-solid fa-file-excel text-sm"></i>
+            <span>Download P&L (CSV)</span>
+          </button>
+
+          {/* Download Detail Transactions */}
+          <button
+            id="btn-download-pnl-detail"
+            onClick={handleDownloadDetailTransactionsCSV}
+            className="px-3.5 py-2 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+            title="Unduh Rincian Buku Besar Mutasi Kas Transaksi Pendukung"
+          >
+            <i className="fa-solid fa-table-list text-xs"></i>
+            <span>Download Rincian Mutasi</span>
+          </button>
+
+          {/* Print / Save PDF Button */}
           <button
             id="btn-cetak-pl"
             onClick={handlePrint}
-            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs flex items-center gap-2 transition-all shadow-md shadow-indigo-200"
+            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs flex items-center gap-2 transition-all shadow-md shadow-indigo-200 cursor-pointer"
+            title="Cetak atau Simpan Laporan P&L Resmi format PDF A4"
           >
             <i className="fa-solid fa-print text-sm"></i>
-            <span>Cetak / Simpan PDF P&L</span>
+            <span>Cetak / PDF P&L</span>
           </button>
         </div>
       </div>

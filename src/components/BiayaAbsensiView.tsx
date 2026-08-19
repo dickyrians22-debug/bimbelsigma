@@ -107,13 +107,15 @@ export const BiayaAbsensiView: React.FC<BiayaAbsensiViewProps> = ({
     const kelebihanBayar = Math.max(0, totalTerbayar - totalBiaya);
 
     // Status
-    let statusKeterangan: 'Lunas' | 'Belum Lunas' | 'Belum Ada Sesi' = 'Belum Lunas';
+    let statusKeterangan: 'Lunas' | 'Kurang Bayar' | 'Belum Bayar' | 'Belum Ada Sesi' = 'Belum Bayar';
     if (totalBiaya === 0 && countHadir === 0) {
       statusKeterangan = 'Belum Ada Sesi';
     } else if (totalTerbayar >= totalBiaya) {
       statusKeterangan = 'Lunas';
+    } else if (totalTerbayar > 0) {
+      statusKeterangan = 'Kurang Bayar';
     } else {
-      statusKeterangan = 'Belum Lunas';
+      statusKeterangan = 'Belum Bayar';
     }
 
     return {
@@ -152,7 +154,9 @@ export const BiayaAbsensiView: React.FC<BiayaAbsensiViewProps> = ({
   const totalAkumulasiTerbayar = studentBillingList.reduce((sum, i) => sum + i.totalTerbayar, 0);
   const totalAkumulasiPiutang = studentBillingList.reduce((sum, i) => sum + i.sisaTagihan, 0);
   const countLunas = studentBillingList.filter((i) => i.statusKeterangan === 'Lunas').length;
-  const countBelumLunas = studentBillingList.filter((i) => i.statusKeterangan === 'Belum Lunas').length;
+  const countKurangBayar = studentBillingList.filter((i) => i.statusKeterangan === 'Kurang Bayar').length;
+  const countBelumBayar = studentBillingList.filter((i) => i.statusKeterangan === 'Belum Bayar').length;
+  const countBelumLunas = countKurangBayar + countBelumBayar;
 
   // Open Pay Modal prefilled
   const handleOpenPayModal = (item: typeof studentBillingList[0]) => {
@@ -466,9 +470,10 @@ export const BiayaAbsensiView: React.FC<BiayaAbsensiViewProps> = ({
               onChange={(e) => setFilterStatusBayar(e.target.value)}
               className="w-full py-2 px-3 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-hidden bg-white text-slate-700 font-bold"
             >
-              <option value="ALL">Semua Status (Lunas & Belum Lunas)</option>
+              <option value="ALL">Semua Status Pembayaran</option>
               <option value="Lunas">✓ Lunas</option>
-              <option value="Belum Lunas">⚠️ Belum Lunas / Kurang</option>
+              <option value="Kurang Bayar">⏳ Kurang Bayar</option>
+              <option value="Belum Bayar">⚠️ Belum Bayar</option>
               <option value="Belum Ada Sesi">Belum Ada Sesi</option>
             </select>
           </div>
@@ -611,12 +616,15 @@ export const BiayaAbsensiView: React.FC<BiayaAbsensiViewProps> = ({
                         <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
                           item.statusKeterangan === 'Lunas'
                             ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                            : item.statusKeterangan === 'Belum Lunas'
-                            ? 'bg-rose-100 text-rose-800 border border-rose-300 animate-pulse'
+                            : item.statusKeterangan === 'Kurang Bayar'
+                            ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                            : item.statusKeterangan === 'Belum Bayar'
+                            ? 'bg-rose-100 text-rose-800 border border-rose-300'
                             : 'bg-slate-100 text-slate-600 border border-slate-300'
                         }`}>
                           {item.statusKeterangan === 'Lunas' && '✓ LUNAS'}
-                          {item.statusKeterangan === 'Belum Lunas' && '⚠️ BELUM LUNAS'}
+                          {item.statusKeterangan === 'Kurang Bayar' && '⏳ KURANG BAYAR'}
+                          {item.statusKeterangan === 'Belum Bayar' && '⚠️ BELUM BAYAR'}
                           {item.statusKeterangan === 'Belum Ada Sesi' && 'BELUM ADA SESI'}
                         </span>
                       </td>

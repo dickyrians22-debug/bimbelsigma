@@ -318,8 +318,14 @@ export const PengaturanView: React.FC<PengaturanViewProps> = ({
             {cloudStatus === 'connected' && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                <i className="fa-solid fa-check text-[10px]"></i>
-                Terkoneksi & Realtime Aktif
+                <i className="fa-solid fa-cloud-check text-xs text-emerald-600"></i>
+                Terhubung ke Cloud (Hardcoded)
+              </span>
+            )}
+            {cloudStatus === 'syncing' && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                <i className="fa-solid fa-rotate fa-spin text-xs"></i>
+                Sinkronisasi Realtime...
               </span>
             )}
             {cloudStatus === 'connecting' && (
@@ -331,7 +337,7 @@ export const PengaturanView: React.FC<PengaturanViewProps> = ({
             {cloudStatus === 'offline' && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
                 <i className="fa-solid fa-plug-circle-xmark text-xs"></i>
-                Belum Terkonfigurasi
+                Offline
               </span>
             )}
             {cloudStatus === 'error' && (

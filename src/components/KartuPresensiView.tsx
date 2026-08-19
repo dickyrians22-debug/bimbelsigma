@@ -48,7 +48,7 @@ export const KartuPresensiView: React.FC<KartuPresensiViewProps> = ({
   const studentBillingData = targetStudents.map((student) => {
     // All attendance records for this student in the month
     const studentAbsensi = absensi
-      .filter((a) => a.siswaId === student.id && a.tanggal.startsWith(monthPrefix))
+      .filter((a) => (a.siswaId === student.id || (a.kodeSiswa && a.kodeSiswa === student.kodeSiswa)) && a.tanggal.startsWith(monthPrefix))
       .sort((a, b) => a.tanggal.localeCompare(b.tanggal));
 
     const hadirRecords = studentAbsensi.filter((a) => a.status === 'Hadir');
@@ -63,7 +63,7 @@ export const KartuPresensiView: React.FC<KartuPresensiViewProps> = ({
     const matchingKas = kas.filter((k) => 
       k.jenis === 'Masuk' &&
       (k.kategori.toLowerCase().includes('spp') || k.kategori === 'SPP Les Bulanan') &&
-      k.siswaId === student.id &&
+      (k.siswaId === student.id || k.siswaId === student.kodeSiswa) &&
       (k.bulanTagihan === monthPrefix || (!k.bulanTagihan && k.tanggal.startsWith(monthPrefix)))
     );
 

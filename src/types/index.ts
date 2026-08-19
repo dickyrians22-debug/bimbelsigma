@@ -3,7 +3,7 @@ export type JenisKelas = 'Privat' | 'Grup';
 export type StatusSiswa = 'Aktif' | 'Non-Aktif';
 export type StatusKehadiran = 'Hadir' | 'Izin' | 'Sakit' | 'Alpha';
 export type JenisKas = 'Masuk' | 'Keluar';
-export type StatusTagihanSiswa = 'Lunas' | 'Belum Lunas' | 'Belum Ada Sesi';
+export type StatusTagihanSiswa = 'Lunas' | 'Kurang Bayar' | 'Belum Bayar' | 'Belum Ada Sesi';
 export type MetodeBayar = 'Transfer Bank' | 'Tunai / Cash' | 'QRIS' | 'Lainnya';
 
 export interface Student {
@@ -58,6 +58,9 @@ export interface PengaturanBimbel {
   kategoriKeluar: string[];
   adminPin?: string;
   requireLogin?: boolean;
+  lokasiTandaTangan?: string;
+  tanggalTandaTangan?: string;
+  jabatanPimpinan?: string;
 }
 
 export interface AuthSession {

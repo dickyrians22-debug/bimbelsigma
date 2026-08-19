@@ -251,7 +251,7 @@ export const AbsensiView: React.FC<AbsensiViewProps> = ({
   const filteredAbsensi = absensi.filter((r) => {
     const matchDate = !selectedDate || r.tanggal === selectedDate;
     const matchStatus = filterStatus === 'ALL' || r.status === filterStatus;
-    const matchSiswa = filterSiswa === 'ALL' || r.siswaId === filterSiswa;
+    const matchSiswa = filterSiswa === 'ALL' || r.siswaId === filterSiswa || (r.kodeSiswa && students.find(s => s.id === filterSiswa)?.kodeSiswa === r.kodeSiswa);
     return matchDate && matchStatus && matchSiswa;
   });
 
@@ -475,7 +475,9 @@ export const AbsensiView: React.FC<AbsensiViewProps> = ({
                 </tr>
               ) : (
                 filteredAbsensi.map((r, idx) => {
-                  const std = students.find((s) => s.id === r.siswaId);
+                  const std = students.find((s) => s.id === r.siswaId || (r.kodeSiswa && s.kodeSiswa === r.kodeSiswa));
+                  const displayNama = std ? std.nama : r.siswaNama || 'Siswa';
+                  const displayKode = std ? std.kodeSiswa : r.kodeSiswa || '-';
                   return (
                     <tr key={r.id} className="hover:bg-slate-50/60 transition-colors">
                       <td className="py-3 px-4 text-center text-slate-400 font-mono">{idx + 1}</td>
@@ -490,9 +492,9 @@ export const AbsensiView: React.FC<AbsensiViewProps> = ({
 
                       {/* Nama & Kode */}
                       <td className="py-3 px-4">
-                        <div className="font-bold text-slate-900">{r.siswaNama}</div>
+                        <div className="font-bold text-slate-900">{displayNama}</div>
                         <div className="text-[10px] font-mono text-indigo-600 font-semibold flex items-center gap-1.5">
-                          <span>{r.kodeSiswa}</span>
+                          <span>{displayKode}</span>
                           {std && (
                             <span className="text-slate-400 font-sans">({std.tingkat} - {std.jenisKelas})</span>
                           )}
