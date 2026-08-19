@@ -1,0 +1,6 @@
+{
+  "name": "BIMBEL SIGMA - Sistem Manajemen Operasional",
+  "description": "Sistem manajemen operasional bimbingan belajar BIMBEL SIGMA lengkap dengan Database Siswa, Absensi Digital, Kas & Pembukuan, Rekap Kartu Tagihan Cetak 1/4 A4, dan Laporan P&L Tahunan.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
