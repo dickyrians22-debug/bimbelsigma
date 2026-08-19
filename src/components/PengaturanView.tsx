@@ -670,44 +670,40 @@ export const PengaturanView: React.FC<PengaturanViewProps> = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-indigo-900 font-bold text-xs">
                 <i className="fa-solid fa-shield-halved text-indigo-600 text-sm"></i>
-                <span>Keamanan & Sandi Akses Portal Admin</span>
+                <span>Keamanan & PIN Akses Portal Pengelola</span>
               </div>
               <span className="text-[10px] bg-indigo-200/60 text-indigo-800 font-bold px-2 py-0.5 rounded-md">
                 Proteksi Dashboard
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  PIN / Sandi Pengelola Master <span className="text-rose-500">*</span>
+                  PIN Akses Pengelola <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.adminPin || 'admin123'}
                   onChange={(e) => handleChange('adminPin', e.target.value)}
-                  placeholder="admin123"
-                  className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500"
+                  placeholder="Masukkan PIN baru..."
+                  className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 font-bold text-indigo-950"
                 />
                 <p className="text-[10px] text-slate-500 mt-1">
-                  Sandi yang diminta saat membuka portal login. (Bawaan: <code>admin123</code>)
+                  Ubah PIN di sini lalu klik tombol Simpan di bawah untuk memperbarui sandi masuk.
                 </p>
               </div>
 
-              <div className="flex flex-col justify-center">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={formData.requireLogin !== false}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, requireLogin: e.target.checked }))}
-                    className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500"
-                  />
-                  <span className="text-xs font-bold text-slate-800">
-                    Wajibkan Login / Kunci Portal Akses
-                  </span>
-                </label>
-                <p className="text-[10px] text-slate-500 mt-1 pl-6">
-                  Jika aktif, setiap membuka aplikasi harus memasukkan PIN/Sandi atau akun Supabase Auth terlebih dahulu.
+              <div className="p-3 bg-white/80 rounded-xl border border-indigo-100 text-xs flex flex-col justify-center space-y-1">
+                <span className="font-bold text-slate-800 flex items-center gap-1.5 text-[11px]">
+                  <i className="fa-solid fa-envelope text-indigo-600"></i>
+                  <span>Akses Login Email Cadangan:</span>
+                </span>
+                <p className="text-[11px] font-mono text-indigo-900 font-bold">
+                  dickyrians22@gmail.com
+                </p>
+                <p className="text-[10px] text-slate-500">
+                  Dapat digunakan untuk masuk langsung via tab "Email Admin" di halaman portal.
                 </p>
               </div>
             </div>

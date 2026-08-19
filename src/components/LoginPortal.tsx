@@ -51,22 +51,18 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
     const inputClean = pinInput.trim();
 
     if (!inputClean) {
-      setErrorMessage('Harap masukkan PIN atau Sandi Pengelola');
+      setErrorMessage('Harap masukkan PIN Akses Pengelola');
       return;
     }
 
     setIsLoading(true);
 
     setTimeout(() => {
-      // Allow correct configured PIN, default 'admin123', or 'sigma2026'
-      if (
-        inputClean === correctPin ||
-        inputClean === 'admin123' ||
-        inputClean === 'sigma2026'
-      ) {
+      // Validate strictly against the PIN configured in Pengaturan (default: admin123)
+      if (inputClean === correctPin) {
         setIsLoading(false);
         setFailedAttempts(0);
-        onShowToast(`Selamat datang kembali di ${pengaturan.namaLembaga}!`, 'success');
+        onShowToast(`Selamat datang di ${pengaturan.namaLembaga}!`, 'success');
         onLoginSuccess({
           username: pengaturan.pimpinan || 'Pengelola Bimbel',
           role: 'Admin',
@@ -80,19 +76,19 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
           setLockoutTime(30);
           setErrorMessage('Terlalu banyak percobaan gagal. Silakan tunggu 30 detik.');
         } else {
-          setErrorMessage(`PIN / Sandi salah! Sisa percobaan: ${5 - newAttempts}`);
+          setErrorMessage(`PIN tidak sesuai! Sisa percobaan: ${5 - newAttempts}`);
         }
       }
     }, 400);
   };
 
-  // Handle Supabase Auth (Email / Password) Submit
-  const handleSupabaseAuthSubmit = async (e: React.FormEvent) => {
+  // Handle Email & Password Submit
+  const handleEmailAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (lockoutTime > 0) return;
 
     setErrorMessage('');
-    const email = emailInput.trim();
+    const email = emailInput.trim().toLowerCase();
     const password = supabasePassword.trim();
 
     if (!email || !password) {
@@ -100,41 +96,59 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
       return;
     }
 
-    const client = getSupabaseClient();
-    if (!client) {
-      setErrorMessage('Koneksi Supabase belum aktif. Silakan gunakan mode PIN Admin');
+    setIsLoading(true);
+
+    // Direct Administrator Email Credential Check
+    if (email === 'dickyrians22@gmail.com' && password === 'Danscox.29') {
+      setTimeout(() => {
+        setIsLoading(false);
+        setFailedAttempts(0);
+        onShowToast(`Selamat datang ${email}! Akses Pengelola Aktif.`, 'success');
+        onLoginSuccess({
+          username: 'Dicky Riansyah (Admin)',
+          role: 'Admin',
+        });
+      }, 400);
       return;
     }
 
-    setIsLoading(true);
-    try {
-      const { data, error } = await client.auth.signInWithPassword({
-        email,
-        password,
-      });
+    // Try Supabase Auth if client is configured
+    const client = getSupabaseClient();
+    if (client) {
+      try {
+        const { data, error } = await client.auth.signInWithPassword({
+          email,
+          password,
+        });
 
-      setIsLoading(false);
-
-      if (error) {
-        setErrorMessage(error.message || 'Gagal login via akun Supabase');
-        return;
+        if (!error && data?.user) {
+          setIsLoading(false);
+          setFailedAttempts(0);
+          onShowToast(`Login berhasil: ${data.user.email}!`, 'success');
+          onLoginSuccess({
+            username: data.user.email || email,
+            role: 'Admin',
+          });
+          return;
+        }
+      } catch {
+        // Fall through to invalid credentials
       }
-
-      onShowToast(`Login Supabase Auth berhasil: ${data.user?.email || email}!`, 'success');
-      onLoginSuccess({
-        username: data.user?.email || email,
-        role: 'Admin',
-      });
-    } catch (err: any) {
-      setIsLoading(false);
-      setErrorMessage(err?.message || 'Terjadi kesalahan autentikasi');
     }
-  };
 
-  // Quick fill helper for admin
-  const handleQuickFill = () => {
-    setPinInput(correctPin || 'admin123');
-    setErrorMessage('');
+    // Invalid credentials
+    setTimeout(() => {
+      setIsLoading(false);
+      const newAttempts = failedAttempts + 1;
+      setFailedAttempts(newAttempts);
+
+      if (newAttempts >= 5) {
+        setLockoutTime(30);
+        setErrorMessage('Terlalu banyak percobaan gagal. Silakan tunggu 30 detik.');
+      } else {
+        setErrorMessage(`Email atau kata sandi tidak valid. Sisa percobaan: ${5 - newAttempts}`);
+      }
+    }, 400);
   };
 
   return (
@@ -206,7 +220,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
             }`}
           >
             <i className="fa-solid fa-key text-[11px]"></i>
-            <span>PIN / Sandi Master</span>
+            <span>PIN Akses</span>
           </button>
 
           <button
@@ -221,8 +235,8 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
             }`}
           >
-            <i className="fa-solid fa-user-lock text-[11px]"></i>
-            <span>Supabase Auth</span>
+            <i className="fa-solid fa-envelope text-[11px]"></i>
+            <span>Email Admin</span>
           </button>
         </div>
 
@@ -234,13 +248,13 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
           </div>
         )}
 
-        {/* FORM MODE 1: PIN / Master Password */}
+        {/* FORM MODE 1: PIN Akses */}
         {loginMode === 'pin' && (
           <form onSubmit={handlePinSubmit} className="mt-5 space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center justify-between">
-                <span>PIN / Sandi Pengelola:</span>
-                <span className="text-[10px] text-indigo-400 font-normal">Akses Utama Admin</span>
+                <span>PIN Akses Pengelola:</span>
+                <span className="text-[10px] text-slate-400 font-normal">Dapat diubah di Pengaturan</span>
               </label>
               
               <div className="relative">
@@ -252,7 +266,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                   type={showPassword ? 'text' : 'password'}
                   value={pinInput}
                   onChange={(e) => setPinInput(e.target.value)}
-                  placeholder="Masukkan PIN / Sandi..."
+                  placeholder="Masukkan PIN Akses..."
                   disabled={isLoading || lockoutTime > 0}
                   autoFocus
                   className="w-full pl-10 pr-10 py-3 bg-slate-950/80 border border-slate-700/80 rounded-2xl text-white placeholder-slate-500 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all font-mono"
@@ -278,15 +292,6 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                 />
                 <span className="text-[11px]">Ingat sesi login</span>
               </label>
-
-              <button
-                type="button"
-                onClick={handleQuickFill}
-                className="text-[11px] text-indigo-400 hover:text-indigo-300 hover:underline font-semibold"
-                title="Isi otomatis PIN default admin123"
-              >
-                Gunakan PIN Default (admin123)
-              </button>
             </div>
 
             <button
@@ -297,7 +302,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
               {isLoading ? (
                 <>
                   <i className="fa-solid fa-circle-notch fa-spin"></i>
-                  <span>Memverifikasi Akses...</span>
+                  <span>Memverifikasi PIN...</span>
                 </>
               ) : lockoutTime > 0 ? (
                 <>
@@ -311,34 +316,15 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                 </>
               )}
             </button>
-
-            {/* Quick 1-Click Access for Instant Demo / Admin */}
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  onShowToast(`Selamat datang di ${pengaturan.namaLembaga}!`, 'success');
-                  onLoginSuccess({
-                    username: pengaturan.pimpinan || 'Pengelola Bimbel',
-                    role: 'Admin',
-                  });
-                }}
-                className="w-full py-2.5 px-3 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                title="Masuk langsung ke Dashboard tanpa mengetik sandi"
-              >
-                <i className="fa-solid fa-bolt text-amber-400 text-xs"></i>
-                <span>Masuk Instan (Akses Pengelola)</span>
-              </button>
-            </div>
           </form>
         )}
 
-        {/* FORM MODE 2: Supabase Auth Email/Password */}
+        {/* FORM MODE 2: Email & Kata Sandi */}
         {loginMode === 'supabase' && (
-          <form onSubmit={handleSupabaseAuthSubmit} className="mt-5 space-y-4">
+          <form onSubmit={handleEmailAuthSubmit} className="mt-5 space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                Email Terdaftar di Supabase:
+                Email Pengelola:
               </label>
               <div className="relative">
                 <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
@@ -348,7 +334,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                   type="email"
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
-                  placeholder="admin@bimbelsigma.id"
+                  placeholder="nama@email.com"
                   disabled={isLoading || lockoutTime > 0}
                   autoFocus
                   className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-slate-700/80 rounded-2xl text-white placeholder-slate-500 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
@@ -358,7 +344,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
 
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                Kata Sandi Supabase:
+                Kata Sandi:
               </label>
               <div className="relative">
                 <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
@@ -390,7 +376,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
               {isLoading ? (
                 <>
                   <i className="fa-solid fa-circle-notch fa-spin"></i>
-                  <span>Mengautentikasi Supabase...</span>
+                  <span>Memverifikasi Akun...</span>
                 </>
               ) : lockoutTime > 0 ? (
                 <>
@@ -399,7 +385,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                 </>
               ) : (
                 <>
-                  <span>Masuk via Akun Supabase</span>
+                  <span>Masuk dengan Email</span>
                   <i className="fa-solid fa-arrow-right text-xs"></i>
                 </>
               )}

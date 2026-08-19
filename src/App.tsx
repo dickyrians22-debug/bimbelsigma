@@ -75,27 +75,36 @@ export default function App() {
   const realtimeChannelRef = useRef<any>(null);
   const localBusRef = useRef<BroadcastChannel | null>(null);
 
-  // Toast Notification System
+  // Toast Notification System - Strict Max 1 Toast & 3s Auto-Dismiss
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const toastTimeoutRef = useRef<any>(null);
 
-  const showToast = (text: string, type: 'success' | 'info' | 'error' | 'warning' = 'success') => {
-    const id = `toast-${Date.now()}-${Math.random()}`;
-    setToasts((prev) => [...prev, { id, text, type }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
-  };
+  const showToast = useCallback((text: string, type: 'success' | 'info' | 'error' | 'warning' = 'success') => {
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+    const id = `toast-${Date.now()}`;
+    // Strictly limit to maximum 1 toast displayed at any time
+    setToasts([{ id, text, type }]);
 
-  const dismissToast = (id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
+    // Auto-dismiss after 3 seconds
+    toastTimeoutRef.current = setTimeout(() => {
+      setToasts([]);
+    }, 3000);
+  }, []);
+
+  const dismissToast = useCallback((id?: string) => {
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+    setToasts([]);
+  }, []);
 
   /**
    * 1. UTAMAKAN SUPABASE:
-   * Saat pertama kali dimuat, aplikasi WAJIB langsung melakukan 'SELECT *' ke Supabase
-   * untuk mengisi array data utama (Siswa, Absensi, Kas, Pengaturan).
+   * Saat pertama kali dimuat, aplikasi melakukan 'SELECT *' ke Supabase secara senyap (Silent Load).
    */
-  const initCloudFirstData = useCallback(async (isSilent = false) => {
+  const initCloudFirstData = useCallback(async (isSilent = true) => {
     const config = getSupabaseConfig();
 
     if (!config.isEnabled || !config.url || !config.anonKey) {
@@ -114,15 +123,12 @@ export default function App() {
 
       if (cloudData) {
         if (cloudData.isTableEmpty) {
-          // Jika tabel Supabase masih kosong, lakukan auto-seeding data awal agar langsung siap dipakai
+          // Jika tabel Supabase masih kosong, lakukan auto-seeding data awal secara senyap
           await seedInitialCloudData();
           setStudents(MOCK_STUDENTS);
           setAbsensi(generateMockAbsensi());
           setKas(generateMockKas());
           setPengaturan(DEFAULT_PENGATURAN);
-          if (!isSilent) {
-            showToast('Tabel Supabase terhubung! Data awal berhasil diinisialisasi ke Cloud.', 'info');
-          }
         } else {
           // Isi array data utama langsung dari Supabase
           setStudents(cloudData.students || []);
@@ -136,10 +142,9 @@ export default function App() {
       }
 
       /**
-       * 2. SINKRONISASI REALTIME BIDIRECTIONAL:
-       * Mengaktifkan Supabase Realtime Subscription (postgres_changes + instant broadcast)
-       * untuk semua tabel. Jika ada penambahan/perubahan/penghapusan data di Supabase (dari HP/browser lain),
-       * UI di browser yang sedang terbuka langsung ter-render ulang otomatis tanpa refresh.
+       * 2. SINKRONISASI REALTIME BIDIRECTIONAL (SILENT SYNC):
+       * Mengaktifkan Supabase Realtime Subscription untuk semua tabel.
+       * Perubahan data disinkronkan secara senyap ke dalam state tanpa memunculkan toast bulk/spam.
        */
       if (!realtimeChannelRef.current) {
         const channel = subscribeToSupabaseRealtime({
@@ -156,11 +161,9 @@ export default function App() {
               }
               return [student, ...prev];
             });
-            showToast(`Data siswa "${student.nama}" diperbarui dari perangkat lain!`, 'info');
           },
           onStudentDelete: (id) => {
             setStudents((prev) => prev.filter((s) => s.id !== id));
-            showToast('Data siswa dihapus dari perangkat lain.', 'info');
           },
           onAllAbsensiSync: (allAbsensi) => {
             setAbsensi(allAbsensi);
@@ -175,7 +178,6 @@ export default function App() {
               }
               return [record, ...prev];
             });
-            showToast(`Presensi "${record.siswaNama}" (${record.status}) disinkronkan realtime!`, 'info');
           },
           onAbsensiDelete: (id) => {
             setAbsensi((prev) => prev.filter((a) => a.id !== id));
@@ -193,14 +195,12 @@ export default function App() {
               }
               return [item, ...prev];
             });
-            showToast(`Transaksi kas "${item.kategori}" (${item.jenis}) disinkronkan realtime!`, 'info');
           },
           onKasDelete: (id) => {
             setKas((prev) => prev.filter((k) => k.id !== id));
           },
           onPengaturanUpdate: (newPengaturan) => {
             setPengaturan(newPengaturan);
-            showToast('Profil & Pengaturan lembaga diperbarui secara realtime!', 'info');
           },
           onStatusChange: (status) => {
             if (status === 'SUBSCRIBED') {
