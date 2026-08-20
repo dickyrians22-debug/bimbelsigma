@@ -1,6 +1,87 @@
 import { AbsensiRecord, PengaturanBimbel, Student, TransaksiKas } from '../types';
 import { getCurrentYearMonth, getTodayDateString } from './helpers';
 
+const STORAGE_STUDENTS_KEY = 'sigma_students_v1';
+const STORAGE_ABSENSI_KEY = 'sigma_absensi_v1';
+const STORAGE_KAS_KEY = 'sigma_kas_v1';
+const STORAGE_PENGATURAN_KEY = 'sigma_pengaturan_v1';
+
+export function getStoredStudentsCache(): Student[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_STUDENTS_KEY);
+    if (!raw) return MOCK_STUDENTS;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : MOCK_STUDENTS;
+  } catch {
+    return MOCK_STUDENTS;
+  }
+}
+
+export function saveStoredStudentsCache(students: Student[]): void {
+  try {
+    localStorage.setItem(STORAGE_STUDENTS_KEY, JSON.stringify(students));
+  } catch (e) {
+    console.warn('LocalStorage save students error:', e);
+  }
+}
+
+export function getStoredAbsensiCache(): AbsensiRecord[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_ABSENSI_KEY);
+    if (!raw) return generateMockAbsensi();
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : generateMockAbsensi();
+  } catch {
+    return generateMockAbsensi();
+  }
+}
+
+export function saveStoredAbsensiCache(absensi: AbsensiRecord[]): void {
+  try {
+    localStorage.setItem(STORAGE_ABSENSI_KEY, JSON.stringify(absensi));
+  } catch (e) {
+    console.warn('LocalStorage save absensi error:', e);
+  }
+}
+
+export function getStoredKasCache(): TransaksiKas[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KAS_KEY);
+    if (!raw) return generateMockKas();
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : generateMockKas();
+  } catch {
+    return generateMockKas();
+  }
+}
+
+export function saveStoredKasCache(kas: TransaksiKas[]): void {
+  try {
+    localStorage.setItem(STORAGE_KAS_KEY, JSON.stringify(kas));
+  } catch (e) {
+    console.warn('LocalStorage save kas error:', e);
+  }
+}
+
+export function getStoredPengaturanCache(): PengaturanBimbel {
+  try {
+    const raw = localStorage.getItem(STORAGE_PENGATURAN_KEY);
+    if (!raw) return DEFAULT_PENGATURAN;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? { ...DEFAULT_PENGATURAN, ...parsed } : DEFAULT_PENGATURAN;
+  } catch {
+    return DEFAULT_PENGATURAN;
+  }
+}
+
+export function saveStoredPengaturanCache(pengaturan: PengaturanBimbel): void {
+  try {
+    localStorage.setItem(STORAGE_PENGATURAN_KEY, JSON.stringify(pengaturan));
+  } catch (e) {
+    console.warn('LocalStorage save pengaturan error:', e);
+  }
+}
+
 export const DEFAULT_PENGATURAN: PengaturanBimbel = {
   namaLembaga: 'BIMBEL SIGMA',
   tagline: 'Belajar Sampai Paham, Bukan Sekadar Hafal',
@@ -35,11 +116,38 @@ export const DEFAULT_PENGATURAN: PengaturanBimbel = {
   ],
   adminPin: 'admin123',
   requireLogin: true,
+  persentaseGajiGrup: 60,
+  persentaseGajiPrivat: 75,
+  durasiMenitPerSesi: 90,
 };
 
 export const MOCK_STUDENTS: Student[] = [
   {
     id: 'std-001',
+    kodeSiswa: 'SGM-PAUD-001',
+    nama: 'Adiba Shakila Atmarini',
+    tingkat: 'PAUD',
+    jenisKelas: 'Privat',
+    tarifPerSesi: 75000,
+    kontak: '081234567809',
+    tutorPembina: 'Kak Fitri Nur Azizah, S.Pd (Bahasa Indonesia & SD)',
+    status: 'Aktif',
+    tanggalDaftar: '2026-01-05',
+  },
+  {
+    id: 'std-002',
+    kodeSiswa: 'SGM-TK-001',
+    nama: 'Kenzo Alfarizi Pratama',
+    tingkat: 'TK',
+    jenisKelas: 'Grup',
+    tarifPerSesi: 45000,
+    kontak: '081234567810',
+    tutorPembina: 'Kak Fitri Nur Azizah, S.Pd (Bahasa Indonesia & SD)',
+    status: 'Aktif',
+    tanggalDaftar: '2026-01-08',
+  },
+  {
+    id: 'std-003',
     kodeSiswa: 'SGM-SD-001',
     nama: 'Ahmad Faiz Pratama',
     tingkat: 'SD',
@@ -51,7 +159,7 @@ export const MOCK_STUDENTS: Student[] = [
     tanggalDaftar: '2026-01-10',
   },
   {
-    id: 'std-002',
+    id: 'std-004',
     kodeSiswa: 'SGM-SD-002',
     nama: 'Alya Putri Salsabila',
     tingkat: 'SD',
@@ -63,7 +171,7 @@ export const MOCK_STUDENTS: Student[] = [
     tanggalDaftar: '2026-01-12',
   },
   {
-    id: 'std-003',
+    id: 'std-005',
     kodeSiswa: 'SGM-SMP-001',
     nama: 'Bagas Aditya Nugraha',
     tingkat: 'SMP',
@@ -75,7 +183,7 @@ export const MOCK_STUDENTS: Student[] = [
     tanggalDaftar: '2026-01-15',
   },
   {
-    id: 'std-004',
+    id: 'std-006',
     kodeSiswa: 'SGM-SMP-002',
     nama: 'Chelsea Olivia Clarissa',
     tingkat: 'SMP',
@@ -87,7 +195,7 @@ export const MOCK_STUDENTS: Student[] = [
     tanggalDaftar: '2026-01-18',
   },
   {
-    id: 'std-005',
+    id: 'std-007',
     kodeSiswa: 'SGM-SMA-001',
     nama: 'Daffa Rizky Maulana',
     tingkat: 'SMA',
@@ -99,7 +207,7 @@ export const MOCK_STUDENTS: Student[] = [
     tanggalDaftar: '2026-01-20',
   },
   {
-    id: 'std-006',
+    id: 'std-008',
     kodeSiswa: 'SGM-SMA-002',
     nama: 'Elvira Nathania Zahra',
     tingkat: 'SMA',
@@ -111,28 +219,28 @@ export const MOCK_STUDENTS: Student[] = [
     tanggalDaftar: '2026-01-22',
   },
   {
-    id: 'std-007',
-    kodeSiswa: 'SGM-SD-003',
-    nama: 'Farhan Dwi Saputra',
-    tingkat: 'SD',
-    jenisKelas: 'Grup',
-    tarifPerSesi: 50000,
-    kontak: '081234567807',
-    tutorPembina: 'Kak Fitri Nur Azizah, S.Pd (Bahasa Indonesia & SD)',
+    id: 'std-009',
+    kodeSiswa: 'SGM-MHS-001',
+    nama: 'Gilang Ramadhan Santoso',
+    tingkat: 'Mahasiswa',
+    jenisKelas: 'Privat',
+    tarifPerSesi: 135000,
+    kontak: '081234567811',
+    tutorPembina: 'Kak Dimas Setiawan, M.Si (Matematika & Fisika)',
     status: 'Aktif',
     tanggalDaftar: '2026-02-01',
   },
   {
-    id: 'std-008',
-    kodeSiswa: 'SGM-SMA-003',
-    nama: 'Gracia Evelyn Tan',
-    tingkat: 'SMA',
+    id: 'std-010',
+    kodeSiswa: 'SGM-UMUM-001',
+    nama: 'Hendra Kusuma, S.T.',
+    tingkat: 'Umum',
     jenisKelas: 'Privat',
-    tarifPerSesi: 115000,
-    kontak: '081234567808',
+    tarifPerSesi: 135000,
+    kontak: '081234567812',
     tutorPembina: 'Kak Kevin Wijaya, B.Ed (English Mastery & TOEFL)',
-    status: 'Non-Aktif',
-    tanggalDaftar: '2025-11-10',
+    status: 'Aktif',
+    tanggalDaftar: '2026-02-05',
   }
 ];
 

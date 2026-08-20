@@ -16,7 +16,15 @@ import {
   DEFAULT_PENGATURAN, 
   MOCK_STUDENTS, 
   generateMockAbsensi, 
-  generateMockKas 
+  generateMockKas,
+  getStoredStudentsCache,
+  saveStoredStudentsCache,
+  getStoredAbsensiCache,
+  saveStoredAbsensiCache,
+  getStoredKasCache,
+  saveStoredKasCache,
+  getStoredPengaturanCache,
+  saveStoredPengaturanCache
 } from './utils/storage';
 import { 
   getSupabaseConfig, 
@@ -41,6 +49,7 @@ import { SiswaView } from './components/SiswaView';
 import { AbsensiView } from './components/AbsensiView';
 import { KartuPresensiView } from './components/KartuPresensiView';
 import { BiayaAbsensiView } from './components/BiayaAbsensiView';
+import { GajiTutorView } from './components/GajiTutorView';
 import { KasView } from './components/KasView';
 import { ProfitLossView } from './components/ProfitLossView';
 import { PengaturanView } from './components/PengaturanView';
@@ -63,11 +72,11 @@ export default function App() {
   const [activeModule, setActiveModule] = useState<ActiveModule>('dashboard');
   const [isOpenMobile, setIsOpenMobile] = useState<boolean>(false);
 
-  // Core Data States (Pure In-Memory & Cloud-Synced, ZERO localStorage dependency for data)
-  const [students, setStudents] = useState<Student[]>(MOCK_STUDENTS);
-  const [absensi, setAbsensi] = useState<AbsensiRecord[]>(generateMockAbsensi());
-  const [kas, setKas] = useState<TransaksiKas[]>(generateMockKas());
-  const [pengaturan, setPengaturan] = useState<PengaturanBimbel>(DEFAULT_PENGATURAN);
+  // Core Data States (Initialized from persistent local cache & seamlessly synced with Cloud)
+  const [students, setStudents] = useState<Student[]>(() => getStoredStudentsCache());
+  const [absensi, setAbsensi] = useState<AbsensiRecord[]>(() => getStoredAbsensiCache());
+  const [kas, setKas] = useState<TransaksiKas[]>(() => getStoredKasCache());
+  const [pengaturan, setPengaturan] = useState<PengaturanBimbel>(() => getStoredPengaturanCache());
 
   // Cloud Sync & Realtime State
   const [cloudStatus, setCloudStatus] = useState<CloudSyncStatus>('offline');
@@ -124,17 +133,31 @@ export default function App() {
       if (cloudData) {
         if (cloudData.isTableEmpty) {
           // Jika tabel Supabase masih kosong, lakukan auto-seeding data awal secara senyap
-          await seedInitialCloudData();
-          setStudents(MOCK_STUDENTS);
-          setAbsensi(generateMockAbsensi());
-          setKas(generateMockKas());
-          setPengaturan(DEFAULT_PENGATURAN);
+          const currentStudents = getStoredStudentsCache();
+          const currentAbsensi = getStoredAbsensiCache();
+          const currentKas = getStoredKasCache();
+          const currentPengaturan = getStoredPengaturanCache();
+          await uploadAllLocalDataToCloud(currentStudents, currentAbsensi, currentKas, currentPengaturan);
+          setStudents(currentStudents);
+          setAbsensi(currentAbsensi);
+          setKas(currentKas);
+          setPengaturan(currentPengaturan);
         } else {
-          // Isi array data utama langsung dari Supabase
-          setStudents(cloudData.students || []);
-          setAbsensi(cloudData.absensi || []);
-          setKas(cloudData.kas || []);
-          setPengaturan(cloudData.pengaturan || DEFAULT_PENGATURAN);
+          // Isi array data utama langsung dari Supabase & perbarui cache lokal
+          const finalStudents = cloudData.students || [];
+          const finalAbsensi = cloudData.absensi || [];
+          const finalKas = cloudData.kas || [];
+          const finalPengaturan = cloudData.pengaturan || DEFAULT_PENGATURAN;
+
+          setStudents(finalStudents);
+          setAbsensi(finalAbsensi);
+          setKas(finalKas);
+          setPengaturan(finalPengaturan);
+
+          saveStoredStudentsCache(finalStudents);
+          saveStoredAbsensiCache(finalAbsensi);
+          saveStoredKasCache(finalKas);
+          saveStoredPengaturanCache(finalPengaturan);
         }
         setCloudStatus('connected');
       } else {
@@ -150,57 +173,70 @@ export default function App() {
         const channel = subscribeToSupabaseRealtime({
           onAllStudentsSync: (allStudents) => {
             setStudents(allStudents);
+            saveStoredStudentsCache(allStudents);
           },
           onStudentUpsert: (student) => {
             setStudents((prev) => {
               const index = prev.findIndex((s) => s.id === student.id);
-              if (index >= 0) {
-                const updated = [...prev];
-                updated[index] = student;
-                return updated;
-              }
-              return [student, ...prev];
+              const updated = index >= 0
+                ? prev.map((s, i) => i === index ? { ...s, ...student } : s)
+                : [student, ...prev];
+              saveStoredStudentsCache(updated);
+              return updated;
             });
           },
           onStudentDelete: (id) => {
-            setStudents((prev) => prev.filter((s) => s.id !== id));
+            setStudents((prev) => {
+              const updated = prev.filter((s) => s.id !== id);
+              saveStoredStudentsCache(updated);
+              return updated;
+            });
           },
           onAllAbsensiSync: (allAbsensi) => {
             setAbsensi(allAbsensi);
+            saveStoredAbsensiCache(allAbsensi);
           },
           onAbsensiUpsert: (record) => {
             setAbsensi((prev) => {
               const index = prev.findIndex((a) => a.id === record.id);
-              if (index >= 0) {
-                const updated = [...prev];
-                updated[index] = record;
-                return updated;
-              }
-              return [record, ...prev];
+              const updated = index >= 0
+                ? prev.map((a, i) => i === index ? { ...a, ...record } : a)
+                : [record, ...prev];
+              saveStoredAbsensiCache(updated);
+              return updated;
             });
           },
           onAbsensiDelete: (id) => {
-            setAbsensi((prev) => prev.filter((a) => a.id !== id));
+            setAbsensi((prev) => {
+              const updated = prev.filter((a) => a.id !== id);
+              saveStoredAbsensiCache(updated);
+              return updated;
+            });
           },
           onAllKasSync: (allKas) => {
             setKas(allKas);
+            saveStoredKasCache(allKas);
           },
           onKasUpsert: (item) => {
             setKas((prev) => {
               const index = prev.findIndex((k) => k.id === item.id);
-              if (index >= 0) {
-                const updated = [...prev];
-                updated[index] = item;
-                return updated;
-              }
-              return [item, ...prev];
+              const updated = index >= 0
+                ? prev.map((k, i) => i === index ? { ...k, ...item } : k)
+                : [item, ...prev];
+              saveStoredKasCache(updated);
+              return updated;
             });
           },
           onKasDelete: (id) => {
-            setKas((prev) => prev.filter((k) => k.id !== id));
+            setKas((prev) => {
+              const updated = prev.filter((k) => k.id !== id);
+              saveStoredKasCache(updated);
+              return updated;
+            });
           },
           onPengaturanUpdate: (newPengaturan) => {
             setPengaturan(newPengaturan);
+            saveStoredPengaturanCache(newPengaturan);
           },
           onStatusChange: (status) => {
             if (status === 'SUBSCRIBED') {
@@ -282,6 +318,7 @@ export default function App() {
   const handleSaveStudents = async (newStudents: Student[]) => {
     const prevStudents = students;
     setStudents(newStudents);
+    saveStoredStudentsCache(newStudents);
 
     // 1. Broadcast ke tab lain di browser yang sama
     localBusRef.current?.postMessage({ type: 'SYNC_STUDENTS', data: newStudents });
@@ -291,18 +328,27 @@ export default function App() {
 
     const config = getSupabaseConfig();
     if (config.isEnabled && config.url && config.anonKey) {
-      // Find deleted students to trigger DELETE on Supabase
-      const currentIds = new Set(newStudents.map((s) => s.id));
-      const deleted = prevStudents.filter((s) => !currentIds.has(s.id));
-      for (const d of deleted) {
-        await deleteCloudStudent(d.id);
-        await broadcastToCloud('SYNC_STUDENT_DELETE', { id: d.id });
-      }
+      try {
+        // Find deleted students to trigger DELETE on Supabase
+        const currentIds = new Set(newStudents.map((s) => s.id));
+        const deleted = prevStudents.filter((s) => !currentIds.has(s.id));
+        for (const d of deleted) {
+          await deleteCloudStudent(d.id);
+          await broadcastToCloud('SYNC_STUDENT_DELETE', { id: d.id });
+        }
 
-      // Upsert modified / newly added students
-      for (const s of newStudents) {
-        await upsertCloudStudent(s);
-        await broadcastToCloud('SYNC_STUDENT_UPSERT', s);
+        // Upsert only modified or newly added students to prevent slow redundant requests
+        const modifiedOrNew = newStudents.filter((ns) => {
+          const old = prevStudents.find((ps) => ps.id === ns.id);
+          return !old || JSON.stringify(old) !== JSON.stringify(ns);
+        });
+
+        for (const s of (modifiedOrNew.length > 0 ? modifiedOrNew : newStudents)) {
+          await upsertCloudStudent(s);
+          await broadcastToCloud('SYNC_STUDENT_UPSERT', s);
+        }
+      } catch (err) {
+        console.error('Error saving students to cloud:', err);
       }
     }
   };
@@ -310,6 +356,7 @@ export default function App() {
   const handleSaveAbsensi = async (newRecords: AbsensiRecord[]) => {
     const prevAbsensi = absensi;
     setAbsensi(newRecords);
+    saveStoredAbsensiCache(newRecords);
 
     // 1. Broadcast ke tab lain di browser yang sama
     localBusRef.current?.postMessage({ type: 'SYNC_ABSENSI', data: newRecords });
@@ -319,16 +366,25 @@ export default function App() {
 
     const config = getSupabaseConfig();
     if (config.isEnabled && config.url && config.anonKey) {
-      const currentIds = new Set(newRecords.map((a) => a.id));
-      const deleted = prevAbsensi.filter((a) => !currentIds.has(a.id));
-      for (const d of deleted) {
-        await deleteCloudAbsensi(d.id);
-        await broadcastToCloud('SYNC_ABSENSI_DELETE', { id: d.id });
-      }
+      try {
+        const currentIds = new Set(newRecords.map((a) => a.id));
+        const deleted = prevAbsensi.filter((a) => !currentIds.has(a.id));
+        for (const d of deleted) {
+          await deleteCloudAbsensi(d.id);
+          await broadcastToCloud('SYNC_ABSENSI_DELETE', { id: d.id });
+        }
 
-      for (const a of newRecords) {
-        await upsertCloudAbsensi(a);
-        await broadcastToCloud('SYNC_ABSENSI_UPSERT', a);
+        const modifiedOrNew = newRecords.filter((nr) => {
+          const old = prevAbsensi.find((pa) => pa.id === nr.id);
+          return !old || JSON.stringify(old) !== JSON.stringify(nr);
+        });
+
+        for (const a of (modifiedOrNew.length > 0 ? modifiedOrNew : newRecords)) {
+          await upsertCloudAbsensi(a);
+          await broadcastToCloud('SYNC_ABSENSI_UPSERT', a);
+        }
+      } catch (err) {
+        console.error('Error saving absensi to cloud:', err);
       }
     }
   };
@@ -336,6 +392,7 @@ export default function App() {
   const handleSaveKas = async (newKas: TransaksiKas[]) => {
     const prevKas = kas;
     setKas(newKas);
+    saveStoredKasCache(newKas);
 
     // 1. Broadcast ke tab lain di browser yang sama
     localBusRef.current?.postMessage({ type: 'SYNC_KAS', data: newKas });
@@ -345,29 +402,43 @@ export default function App() {
 
     const config = getSupabaseConfig();
     if (config.isEnabled && config.url && config.anonKey) {
-      const currentIds = new Set(newKas.map((k) => k.id));
-      const deleted = prevKas.filter((k) => !currentIds.has(k.id));
-      for (const d of deleted) {
-        await deleteCloudKas(d.id);
-        await broadcastToCloud('SYNC_KAS_DELETE', { id: d.id });
-      }
+      try {
+        const currentIds = new Set(newKas.map((k) => k.id));
+        const deleted = prevKas.filter((k) => !currentIds.has(k.id));
+        for (const d of deleted) {
+          await deleteCloudKas(d.id);
+          await broadcastToCloud('SYNC_KAS_DELETE', { id: d.id });
+        }
 
-      for (const k of newKas) {
-        await upsertCloudKas(k);
-        await broadcastToCloud('SYNC_KAS_UPSERT', k);
+        const modifiedOrNew = newKas.filter((nk) => {
+          const old = prevKas.find((pk) => pk.id === nk.id);
+          return !old || JSON.stringify(old) !== JSON.stringify(nk);
+        });
+
+        for (const k of (modifiedOrNew.length > 0 ? modifiedOrNew : newKas)) {
+          await upsertCloudKas(k);
+          await broadcastToCloud('SYNC_KAS_UPSERT', k);
+        }
+      } catch (err) {
+        console.error('Error saving kas to cloud:', err);
       }
     }
   };
 
   const handleSavePengaturan = async (newPengaturan: PengaturanBimbel) => {
     setPengaturan(newPengaturan);
+    saveStoredPengaturanCache(newPengaturan);
 
     localBusRef.current?.postMessage({ type: 'SYNC_PENGATURAN', data: newPengaturan });
     await broadcastToCloud('SYNC_PENGATURAN', newPengaturan);
 
     const config = getSupabaseConfig();
     if (config.isEnabled && config.url && config.anonKey) {
-      await saveCloudPengaturan(newPengaturan);
+      try {
+        await saveCloudPengaturan(newPengaturan);
+      } catch (err) {
+        console.error('Error saving pengaturan to cloud:', err);
+      }
     }
   };
 
@@ -376,10 +447,21 @@ export default function App() {
     setCloudStatus('syncing');
     const cloudData = await fetchAllCloudData();
     if (cloudData) {
-      setStudents(cloudData.students || []);
-      setAbsensi(cloudData.absensi || []);
-      setKas(cloudData.kas || []);
-      setPengaturan(cloudData.pengaturan || DEFAULT_PENGATURAN);
+      const finalStudents = cloudData.students || [];
+      const finalAbsensi = cloudData.absensi || [];
+      const finalKas = cloudData.kas || [];
+      const finalPengaturan = cloudData.pengaturan || DEFAULT_PENGATURAN;
+
+      setStudents(finalStudents);
+      setAbsensi(finalAbsensi);
+      setKas(finalKas);
+      setPengaturan(finalPengaturan);
+
+      saveStoredStudentsCache(finalStudents);
+      saveStoredAbsensiCache(finalAbsensi);
+      saveStoredKasCache(finalKas);
+      saveStoredPengaturanCache(finalPengaturan);
+
       setCloudStatus('connected');
       showToast('Data berhasil dimuat ulang (SELECT *) langsung dari Supabase!', 'success');
     } else {
@@ -496,6 +578,7 @@ export default function App() {
                   {activeModule === 'siswa' && 'Manajemen Database Siswa'}
                   {activeModule === 'absensi' && 'Presensi & Kehadiran Digital'}
                   {activeModule === 'pembayaran' && 'Daftar Murid & Biaya Absensi Berjalan'}
+                  {activeModule === 'gaji-tutor' && 'Rekapan Gaji & Honor Tutor'}
                   {activeModule === 'kartu' && 'Rekap Presensi & Kartu Tagihan (1/4 A4)'}
                   {activeModule === 'kas' && 'Pembukuan Kas Keluar Masuk'}
                   {activeModule === 'pl' && 'Laporan Laba Rugi Tahunan (P&L)'}
@@ -602,6 +685,9 @@ export default function App() {
               students={students}
               onSaveStudents={handleSaveStudents}
               pengaturan={pengaturan}
+              absensi={absensi}
+              onSaveAbsensi={handleSaveAbsensi}
+              onSavePengaturan={handleSavePengaturan}
               onShowToast={showToast}
             />
           )}
@@ -623,6 +709,18 @@ export default function App() {
               kas={kas}
               onSaveKas={handleSaveKas}
               pengaturan={pengaturan}
+              onShowToast={showToast}
+            />
+          )}
+
+          {activeModule === 'gaji-tutor' && (
+            <GajiTutorView
+              students={students}
+              absensi={absensi}
+              kas={kas}
+              pengaturan={pengaturan}
+              onSaveKas={handleSaveKas}
+              onSavePengaturan={handleSavePengaturan}
               onShowToast={showToast}
             />
           )}
@@ -662,6 +760,8 @@ export default function App() {
               absensi={absensi}
               kas={kas}
               onSavePengaturan={handleSavePengaturan}
+              onSaveStudents={handleSaveStudents}
+              onSaveAbsensi={handleSaveAbsensi}
               onResetAllData={handleResetAllData}
               onShowToast={showToast}
               cloudStatus={cloudStatus}

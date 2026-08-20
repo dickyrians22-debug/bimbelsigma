@@ -8,12 +8,14 @@ import {
   TransaksiKas 
 } from '../types';
 import { 
+  DAFTAR_TINGKAT_SEKOLAH, 
   cleanPhoneNumber, 
   exportToCSV, 
   formatIndonesianDate, 
   formatRupiah, 
   formatYearMonth, 
   getCurrentYearMonth, 
+  getTingkatBadgeClass, 
   getTodayDateString 
 } from '../utils/helpers';
 import { ConfirmModal } from './ConfirmModal';
@@ -486,12 +488,14 @@ export const BiayaAbsensiView: React.FC<BiayaAbsensiViewProps> = ({
             <select
               value={filterTingkat}
               onChange={(e) => setFilterTingkat(e.target.value)}
-              className="w-full py-2 px-3 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-hidden bg-white text-slate-700"
+              className="w-full py-2 px-3 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-hidden bg-white text-slate-700 font-bold"
             >
-              <option value="ALL">Semua Jenjang (SD, SMP, SMA)</option>
-              <option value="SD">SD</option>
-              <option value="SMP">SMP</option>
-              <option value="SMA">SMA</option>
+              <option value="ALL">Semua Jenjang ({DAFTAR_TINGKAT_SEKOLAH.length} Jenjang)</option>
+              {DAFTAR_TINGKAT_SEKOLAH.map((t) => (
+                <option key={t.value} value={t.value}>
+                  Jenjang {t.label}
+                </option>
+              ))}
             </select>
           </div>
 

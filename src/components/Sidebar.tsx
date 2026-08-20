@@ -1,7 +1,7 @@
 import React from 'react';
 import { PengaturanBimbel } from '../types';
 
-export type ActiveModule = 'dashboard' | 'siswa' | 'absensi' | 'kartu' | 'pembayaran' | 'kas' | 'pl' | 'pengaturan';
+export type ActiveModule = 'dashboard' | 'siswa' | 'absensi' | 'pembayaran' | 'gaji-tutor' | 'kartu' | 'kas' | 'pl' | 'pengaturan';
 
 interface SidebarProps {
   activeModule: ActiveModule;
@@ -25,6 +25,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'siswa', label: 'Database Siswa', icon: 'fa-users', badge: null },
     { id: 'absensi', label: 'Absensi & Presensi', icon: 'fa-clipboard-check', badge: null },
     { id: 'pembayaran', label: 'Biaya Absensi & Tagihan', icon: 'fa-file-invoice-dollar', badge: 'Otomatis' },
+    { id: 'gaji-tutor', label: 'Rekapan Gaji Tutor', icon: 'fa-chalkboard-user', badge: 'Kas Out' },
     { id: 'kartu', label: 'Rekap Presensi & Kartu', icon: 'fa-id-card-clip', badge: 'Cetak' },
     { id: 'kas', label: 'Kas Keluar Masuk', icon: 'fa-wallet', badge: null },
     { id: 'pl', label: 'Laporan P&L Tahunan', icon: 'fa-chart-line', badge: 'PDF' },

@@ -1,6 +1,13 @@
 import React from 'react';
 import { AbsensiRecord, PengaturanBimbel, Student, TransaksiKas } from '../types';
-import { formatIndonesianDate, formatMonthYear, formatRupiah, getTodayDateString } from '../utils/helpers';
+import { 
+  DAFTAR_TINGKAT_SEKOLAH, 
+  formatIndonesianDate, 
+  formatMonthYear, 
+  formatRupiah, 
+  getTingkatBadgeClass, 
+  getTodayDateString 
+} from '../utils/helpers';
 import { ActiveModule } from './Sidebar';
 
 interface DashboardViewProps {
@@ -50,9 +57,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const recentAbsensi = [...absensi].sort((a, b) => b.tanggal.localeCompare(a.tanggal)).slice(0, 5);
 
   // Breakdown Tingkat
-  const countSD = students.filter((s) => s.tingkat === 'SD' && s.status === 'Aktif').length;
-  const countSMP = students.filter((s) => s.tingkat === 'SMP' && s.status === 'Aktif').length;
-  const countSMA = students.filter((s) => s.tingkat === 'SMA' && s.status === 'Aktif').length;
+  const distributionTingkat = DAFTAR_TINGKAT_SEKOLAH.map((item) => ({
+    ...item,
+    count: students.filter((s) => s.tingkat === item.value && s.status === 'Aktif').length,
+  }));
 
   const countPrivat = students.filter((s) => s.jenisKelas === 'Privat' && s.status === 'Aktif').length;
   const countGrup = students.filter((s) => s.jenisKelas === 'Grup' && s.status === 'Aktif').length;
@@ -196,10 +204,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
           Akses Cepat Operasional
         </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <button
             onClick={() => onNavigate('absensi')}
-            className="p-3.5 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/50 flex items-center gap-3 text-left transition-all group"
+            className="p-3.5 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/50 flex items-center gap-3 text-left transition-all group cursor-pointer"
           >
             <div className="w-9 h-9 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm group-hover:scale-110 transition-transform">
               <i className="fa-solid fa-clipboard-user"></i>
@@ -212,7 +220,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <button
             onClick={() => onNavigate('pembayaran')}
-            className="p-3.5 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 flex items-center gap-3 text-left transition-all group"
+            className="p-3.5 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 flex items-center gap-3 text-left transition-all group cursor-pointer"
           >
             <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm group-hover:scale-110 transition-transform">
               <i className="fa-solid fa-file-invoice-dollar"></i>
@@ -224,8 +232,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </button>
 
           <button
+            onClick={() => onNavigate('gaji-tutor')}
+            className="p-3.5 rounded-xl border border-slate-200 hover:border-amber-500 hover:bg-amber-50/50 flex items-center gap-3 text-left transition-all group cursor-pointer"
+          >
+            <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-sm group-hover:scale-110 transition-transform">
+              <i className="fa-solid fa-chalkboard-user"></i>
+            </div>
+            <div>
+              <div className="text-xs font-bold text-slate-800">Gaji Tutor</div>
+              <div className="text-[10px] text-slate-500">Grup & Privat → Kas</div>
+            </div>
+          </button>
+
+          <button
             onClick={() => onNavigate('kartu')}
-            className="p-3.5 rounded-xl border border-slate-200 hover:border-purple-500 hover:bg-purple-50/50 flex items-center gap-3 text-left transition-all group"
+            className="p-3.5 rounded-xl border border-slate-200 hover:border-purple-500 hover:bg-purple-50/50 flex items-center gap-3 text-left transition-all group cursor-pointer"
           >
             <div className="w-9 h-9 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-sm group-hover:scale-110 transition-transform">
               <i className="fa-solid fa-print"></i>
@@ -238,10 +259,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <button
             onClick={() => onNavigate('kas')}
-            className="p-3.5 rounded-xl border border-slate-200 hover:border-amber-500 hover:bg-amber-50/50 flex items-center gap-3 text-left transition-all group"
+            className="p-3.5 rounded-xl border border-slate-200 hover:border-rose-500 hover:bg-rose-50/50 flex items-center gap-3 text-left transition-all group cursor-pointer"
           >
-            <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-sm group-hover:scale-110 transition-transform">
-              <i className="fa-solid fa-cash-register"></i>
+            <div className="w-9 h-9 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center font-bold text-sm group-hover:scale-110 transition-transform">
+              <i className="fa-solid fa-wallet"></i>
             </div>
             <div>
               <div className="text-xs font-bold text-slate-800">Buku Kas</div>
@@ -251,14 +272,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <button
             onClick={() => onNavigate('siswa')}
-            className="p-3.5 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 flex items-center gap-3 text-left transition-all group"
+            className="p-3.5 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 flex items-center gap-3 text-left transition-all group cursor-pointer"
           >
             <div className="w-9 h-9 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm group-hover:scale-110 transition-transform">
-              <i className="fa-solid fa-user-plus"></i>
+              <i className="fa-solid fa-users"></i>
             </div>
             <div>
               <div className="text-xs font-bold text-slate-800">Daftar Siswa</div>
-              <div className="text-[10px] text-slate-500">Database & Tarif</div>
+              <div className="text-[10px] text-slate-500">Data & Wali Murid</div>
             </div>
           </button>
         </div>
@@ -279,27 +300,67 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </span>
           </div>
 
-          <div className="space-y-3 text-xs">
+          <div className="space-y-3.5 text-xs">
             <div>
-              <div className="flex justify-between text-slate-600 font-semibold mb-1">
-                <span>SD: {countSD} siswa</span>
-                <span>SMP: {countSMP} siswa</span>
-                <span>SMA: {countSMA} siswa</span>
+              <div className="flex items-center justify-between text-slate-500 font-bold text-[11px] mb-1.5">
+                <span>Distribusi per Jenjang ({distributionTingkat.length} Kategori)</span>
+                <span className="text-indigo-600">{totalSiswaAktif} Aktif</span>
               </div>
-              <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden flex">
-                <div style={{ width: `${totalSiswaAktif ? (countSD / totalSiswaAktif) * 100 : 0}%` }} className="bg-amber-500 h-full" title="SD" />
-                <div style={{ width: `${totalSiswaAktif ? (countSMP / totalSiswaAktif) * 100 : 0}%` }} className="bg-blue-500 h-full" title="SMP" />
-                <div style={{ width: `${totalSiswaAktif ? (countSMA / totalSiswaAktif) * 100 : 0}%` }} className="bg-indigo-600 h-full" title="SMA" />
+              
+              {/* Stacked Progress Bar */}
+              <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden flex shadow-inner">
+                {distributionTingkat.map((item) => {
+                  const pct = totalSiswaAktif ? (item.count / totalSiswaAktif) * 100 : 0;
+                  if (pct <= 0) return null;
+                  
+                  let barColor = 'bg-slate-400';
+                  if (item.value === 'PAUD') barColor = 'bg-pink-500';
+                  if (item.value === 'TK') barColor = 'bg-amber-400';
+                  if (item.value === 'SD') barColor = 'bg-emerald-500';
+                  if (item.value === 'SMP') barColor = 'bg-blue-500';
+                  if (item.value === 'SMA') barColor = 'bg-indigo-600';
+                  if (item.value === 'Mahasiswa') barColor = 'bg-purple-600';
+                  if (item.value === 'Umum') barColor = 'bg-teal-600';
+
+                  return (
+                    <div
+                      key={item.value}
+                      style={{ width: `${pct}%` }}
+                      className={`${barColor} h-full transition-all`}
+                      title={`${item.label}: ${item.count} siswa (${Math.round(pct)}%)`}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Grid Jenjang Chips */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 pt-3">
+                {distributionTingkat.map((item) => (
+                  <div 
+                    key={item.value} 
+                    className="p-2 rounded-xl bg-slate-50/80 border border-slate-200/70 flex flex-col justify-between"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${getTingkatBadgeClass(item.value)}`}>
+                        {item.label}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-baseline justify-between">
+                      <span className="font-extrabold text-sm text-slate-800 font-mono">{item.count}</span>
+                      <span className="text-[10px] text-slate-400 font-medium">siswa</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 pt-2">
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                <span className="text-slate-400 block text-[10px] uppercase font-bold">Kelas Privat:</span>
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">Kelas Privat (1 on 1):</span>
                 <span className="text-lg font-black text-slate-800">{countPrivat} Siswa</span>
               </div>
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                <span className="text-slate-400 block text-[10px] uppercase font-bold">Kelas Grup:</span>
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">Kelas Grup / Reguler:</span>
                 <span className="text-lg font-black text-slate-800">{countGrup} Siswa</span>
               </div>
             </div>

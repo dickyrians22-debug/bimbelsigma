@@ -1,4 +1,4 @@
-export type TingkatSekolah = 'SD' | 'SMP' | 'SMA';
+export type TingkatSekolah = 'PAUD' | 'TK' | 'SD' | 'SMP' | 'SMA' | 'Mahasiswa' | 'Umum';
 export type JenisKelas = 'Privat' | 'Grup';
 export type StatusSiswa = 'Aktif' | 'Non-Aktif';
 export type StatusKehadiran = 'Hadir' | 'Izin' | 'Sakit' | 'Alpha';
@@ -61,6 +61,9 @@ export interface PengaturanBimbel {
   lokasiTandaTangan?: string;
   tanggalTandaTangan?: string;
   jabatanPimpinan?: string;
+  persentaseGajiGrup?: number; // Persentase honor tutor kelas grup (e.g. 60%)
+  persentaseGajiPrivat?: number; // Persentase honor tutor kelas privat (e.g. 75%)
+  durasiMenitPerSesi?: number; // Durasi standar mengajar per sesi dalam menit (e.g. 90 menit = 1.5 jam)
 }
 
 export interface AuthSession {

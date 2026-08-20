@@ -252,8 +252,15 @@ export function parseStudentRow(row: any): Student {
   }
 
   const raw = row.raw_data && typeof row.raw_data === 'object' ? row.raw_data : {};
-  const tutorMeta = unpackStudentMeta(String(row.tutor_pembina || row.tutorpembina || row.tutorPembina || raw.tutorPembina || ''));
-  const kontakMeta = unpackStudentMeta(String(row.kontak || raw.kontak || ''));
+  
+  // Resiliently resolve tutorPembina across all column naming and raw_data
+  const rawTutorField = row.tutor_pembina ?? row.tutorpembina ?? row.tutorPembina ?? raw.tutorPembina ?? '';
+  const tutorMeta = unpackStudentMeta(String(rawTutorField));
+  const cleanTutor = tutorMeta.cleanText || (typeof rawTutorField === 'string' ? rawTutorField.replace(/<!--SGM_STD:.*?-->/g, '').trim() : '');
+
+  const rawKontakField = row.kontak ?? raw.kontak ?? '';
+  const kontakMeta = unpackStudentMeta(String(rawKontakField));
+  const cleanKontak = kontakMeta.cleanText || (typeof rawKontakField === 'string' ? rawKontakField.replace(/<!--SGM_STD:.*?-->/g, '').trim() : '');
 
   const kodeSiswa = String(raw.kodeSiswa || row.kode_siswa || row.kodesiswa || row.kodeSiswa || tutorMeta.kodeSiswa || kontakMeta.kodeSiswa || '');
   const jenisKelas = (raw.jenisKelas || row.jenis_kelas || row.jeniskelas || row.jenisKelas || tutorMeta.jenisKelas || kontakMeta.jenisKelas || 'Grup') as JenisKelas;
@@ -279,8 +286,8 @@ export function parseStudentRow(row: any): Student {
     tingkat: (raw.tingkat || row.tingkat || 'SD') as TingkatSekolah,
     jenisKelas,
     tarifPerSesi,
-    kontak: kontakMeta.cleanText || String(row.kontak || raw.kontak || ''),
-    tutorPembina: tutorMeta.cleanText || String(row.tutor_pembina || row.tutorpembina || row.tutorPembina || raw.tutorPembina || ''),
+    kontak: cleanKontak,
+    tutorPembina: cleanTutor,
     status: (raw.status || row.status || 'Aktif') as StatusSiswa,
     tanggalDaftar,
   };
@@ -601,14 +608,19 @@ export async function uploadAllLocalDataToCloud(
         return {
           id: s.id,
           kode_siswa: s.kodeSiswa || '',
+          kodesiswa: s.kodeSiswa || '',
           nama: s.nama || 'Siswa',
           tingkat: s.tingkat || 'SD',
           jenis_kelas: s.jenisKelas || 'Grup',
+          jeniskelas: s.jenisKelas || 'Grup',
           tarif_per_sesi: Number(s.tarifPerSesi || 0),
+          tarifpersesi: Number(s.tarifPerSesi || 0),
           kontak: s.kontak || '',
           tutor_pembina: packedTutor,
+          tutorpembina: packedTutor,
           status: s.status || 'Aktif',
           tanggal_daftar: s.tanggalDaftar || today,
+          tanggaldaftar: s.tanggalDaftar || today,
           raw_data: s,
           updated_at: new Date().toISOString(),
         };
@@ -709,14 +721,19 @@ export async function upsertCloudStudent(student: Student): Promise<{ success: b
   const payload = {
     id: student.id,
     kode_siswa: student.kodeSiswa || '',
+    kodesiswa: student.kodeSiswa || '',
     nama: student.nama || 'Siswa',
     tingkat: student.tingkat || 'SD',
     jenis_kelas: student.jenisKelas || 'Grup',
+    jeniskelas: student.jenisKelas || 'Grup',
     tarif_per_sesi: Number(student.tarifPerSesi || 0),
+    tarifpersesi: Number(student.tarifPerSesi || 0),
     kontak: student.kontak || '',
     tutor_pembina: packedTutor,
+    tutorpembina: packedTutor,
     status: student.status || 'Aktif',
     tanggal_daftar: student.tanggalDaftar || today,
+    tanggaldaftar: student.tanggalDaftar || today,
     raw_data: student,
     updated_at: new Date().toISOString(),
   };

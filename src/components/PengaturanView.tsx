@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ConfirmModalState, PengaturanBimbel, CloudSyncStatus, Student, AbsensiRecord, TransaksiKas } from '../types';
 import { ConfirmModal } from './ConfirmModal';
+import { cleanAndSyncTutorData } from '../utils/helpers';
 import {
   getSupabaseConfig,
   saveSupabaseConfig,
@@ -15,6 +16,8 @@ interface PengaturanViewProps {
   absensi: AbsensiRecord[];
   kas: TransaksiKas[];
   onSavePengaturan: (pengaturan: PengaturanBimbel) => void;
+  onSaveStudents?: (students: Student[]) => void;
+  onSaveAbsensi?: (absensi: AbsensiRecord[]) => void;
   onResetAllData: () => void;
   onShowToast: (text: string, type?: 'success' | 'info' | 'error' | 'warning') => void;
   cloudStatus?: CloudSyncStatus;
@@ -30,6 +33,8 @@ export const PengaturanView: React.FC<PengaturanViewProps> = ({
   absensi,
   kas,
   onSavePengaturan,
+  onSaveStudents,
+  onSaveAbsensi,
   onResetAllData,
   onShowToast,
   cloudStatus = 'offline',
@@ -67,7 +72,7 @@ export const PengaturanView: React.FC<PengaturanViewProps> = ({
   }, [pengaturan]);
 
   // Handle Profile Change
-  const handleChange = (field: keyof PengaturanBimbel, value: string) => {
+  const handleChange = (field: keyof PengaturanBimbel, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -144,7 +149,7 @@ export const PengaturanView: React.FC<PengaturanViewProps> = ({
     onShowToast('Skrip SQL Database Supabase berhasil disalin ke clipboard!', 'success');
   };
 
-  // Tutor Management with Warning Confirmation
+  // Tutor Management with Warning Confirmation & Full-System Synchronization
   const handleAddTutor = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTutor.trim()) return;
@@ -161,7 +166,7 @@ export const PengaturanView: React.FC<PengaturanViewProps> = ({
     setConfirmModal({
       isOpen: true,
       title: 'Konfirmasi Hapus Tutor Pembina',
-      message: `PERINGATAN:\nApakah Anda yakin ingin menghapus "${target}" dari daftar tutor pembina Bimbel Sigma?`,
+      message: `PERINGATAN:\nApakah Anda yakin ingin menghapus "${target}" dari daftar tutor pembina Bimbel Sigma?\n\nSetelah dihapus, sistem akan otomatis menyesuaikan data siswa dan presensi yang terkait agar tetap sinkron.`,
       confirmLabel: 'Ya, Hapus Tutor',
       isDanger: true,
       onConfirm: () => {
@@ -169,8 +174,49 @@ export const PengaturanView: React.FC<PengaturanViewProps> = ({
         const newPengaturan = { ...formData, daftarTutor: updated };
         setFormData(newPengaturan);
         onSavePengaturan(newPengaturan);
+
+        // Synchronize students and absensi with the remaining valid tutors
+        if (updated.length > 0) {
+          const { cleanedStudents, cleanedAbsensi } = cleanAndSyncTutorData(students, absensi, updated);
+          if (onSaveStudents) onSaveStudents(cleanedStudents);
+          if (onSaveAbsensi) onSaveAbsensi(cleanedAbsensi);
+        }
+
         setConfirmModal((prev) => ({ ...prev, isOpen: false }));
-        onShowToast(`Tutor "${target}" dihapus.`, 'info');
+        onShowToast(`Tutor "${target}" berhasil dihapus dan sistem telah disinkronkan.`, 'info');
+      },
+    });
+  };
+
+  // Explicit Clean & Synchronize Tutor Across Entire System
+  const handleCleanAndSyncAllTutors = () => {
+    const validTutors = (formData.daftarTutor || []).filter((t) => t && t.trim().length > 0);
+    if (validTutors.length === 0) {
+      onShowToast('Daftar tutor di pusat kontrol kosong. Tambahkan minimal 1 tutor resmi.', 'warning');
+      return;
+    }
+
+    setConfirmModal({
+      isOpen: true,
+      title: 'Bersihkan & Sinkronkan Tutor di Semua Database',
+      message: `TINDAKAN SINKRONISASI:\nSistem akan memverifikasi seluruh Database Siswa, Presensi & Rekap Gaji terhadap daftar tutor resmi di Pusat Kontrol (${validTutors.length} tutor terdaftar).\n\nNama tutor tidak valid atau tutor usang akan diselaraskan dengan tutor resmi.\nLanjutkan proses ini?`,
+      confirmLabel: 'Ya, Sinkronkan Sekarang',
+      isDanger: false,
+      onConfirm: () => {
+        const { cleanedStudents, cleanedAbsensi, cleanedStudentsCount, cleanedAbsensiCount } = cleanAndSyncTutorData(
+          students,
+          absensi,
+          validTutors
+        );
+
+        if (onSaveStudents) onSaveStudents(cleanedStudents);
+        if (onSaveAbsensi) onSaveAbsensi(cleanedAbsensi);
+
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+        onShowToast(
+          `Pembersihan selesai! ${cleanedStudentsCount} siswa & ${cleanedAbsensiCount} absensi telah disinkronkan ke database tutor resmi.`,
+          'success'
+        );
       },
     });
   };
@@ -709,6 +755,79 @@ export const PengaturanView: React.FC<PengaturanViewProps> = ({
             </div>
           </div>
 
+          {/* Skema Persentase & Tarif Honor Tutor (Grup vs Privat) */}
+          <div className="md:col-span-2 p-4 rounded-2xl bg-amber-50/60 border border-amber-200/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-amber-950 font-bold text-xs">
+                <i className="fa-solid fa-calculator text-amber-600 text-sm"></i>
+                <span>Skema Persentase Honor Tutor Mengajar (Grup vs Privat)</span>
+              </div>
+              <span className="text-[10px] bg-amber-200/80 text-amber-900 font-bold px-2 py-0.5 rounded-md">
+                Rumus Otomatis Kas Keluar
+              </span>
+            </div>
+
+            <p className="text-[11px] text-slate-600">
+              Sistem akan menghitung honor tutor otomatis berdasarkan jumlah jam/sesi mengajar di kelas Grup dan Privat dikalikan persentase bagi hasil di bawah ini:
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Persentase Honor Kelas Grup (%)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={formData.persentaseGajiGrup ?? 60}
+                    onChange={(e) => handleChange('persentaseGajiGrup', Number(e.target.value))}
+                    className="w-full px-3 py-2 text-xs font-bold font-mono rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-amber-500"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">Bagi hasil sesi grup (bawaan: 60%)</p>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Persentase Honor Kelas Privat (%)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={formData.persentaseGajiPrivat ?? 75}
+                    onChange={(e) => handleChange('persentaseGajiPrivat', Number(e.target.value))}
+                    className="w-full px-3 py-2 text-xs font-bold font-mono rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-amber-500"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">Bagi hasil sesi 1-on-1 (bawaan: 75%)</p>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Durasi Standar per Sesi
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="30"
+                    step="15"
+                    value={formData.durasiMenitPerSesi ?? 90}
+                    onChange={(e) => handleChange('durasiMenitPerSesi', Number(e.target.value))}
+                    className="w-full px-3 py-2 text-xs font-bold font-mono rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-amber-500"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">Menit</span>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">90 Menit = 1.5 Jam per sesi</p>
+              </div>
+            </div>
+          </div>
+
           <div className="md:col-span-2">
             <label className="block text-xs font-bold text-slate-700 mb-1">
               Alamat Lengkap Kantor Bimbel
@@ -741,11 +860,22 @@ export const PengaturanView: React.FC<PengaturanViewProps> = ({
         {/* Tutor Pembina */}
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between">
           <div>
-            <h4 className="text-xs font-bold text-slate-900 mb-1 flex items-center gap-2">
-              <i className="fa-solid fa-chalkboard-user text-indigo-600"></i>
-              <span>Daftar Tutor Pembina ({formData.daftarTutor.length})</span>
-            </h4>
-            <p className="text-[11px] text-slate-500 mb-3">Pilihan tutor saat input data siswa dan presensi.</p>
+            <div className="flex items-center justify-between mb-1">
+              <h4 className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                <i className="fa-solid fa-chalkboard-user text-indigo-600"></i>
+                <span>Daftar Tutor Pembina ({formData.daftarTutor.length})</span>
+              </h4>
+              <button
+                type="button"
+                onClick={handleCleanAndSyncAllTutors}
+                className="px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold border border-indigo-200 transition-all flex items-center gap-1 cursor-pointer"
+                title="Bersihkan nama tutor tidak terdaftar & sinkronkan seluruh database"
+              >
+                <i className="fa-solid fa-broom text-indigo-600"></i>
+                <span>Bersihkan & Sinkron</span>
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-500 mb-3">Pilihan tutor resmi untuk data siswa, presensi, dan rekap honor.</p>
 
             <ul className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
               {formData.daftarTutor.map((t, idx) => (
